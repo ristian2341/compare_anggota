@@ -92,52 +92,55 @@ class _DownloadKaryawanPageState extends State<DownloadKaryawanPage> {
   }
 
   Future<void> _importFromFile() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['xlsx', 'xls'],
-    );
+    try {
+      final FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['xlsx', 'xls'],
+      );
 
-    if (result != null && result.files.single.path != null) {
-      setState(() => _isProcessing = true);
-      try {
-        var bytes = File(result.files.single.path!).readAsBytesSync();
-        var excel = Excel.decodeBytes(bytes);
-        
-        await _dbHelper.deleteAllKaryawan();
-        int importedCount = 0;
-
-        for (var table in excel.tables.keys) {
-          var sheet = excel.tables[table];
-          if (sheet == null) continue;
+      if (result != null && result.files.single.path != null) {
+        setState(() => _isProcessing = true);
+        final file = File(result.files.single.path!);
+        if (await file.exists()) {
+          var bytes = file.readAsBytesSync();
+          var excel = Excel.decodeBytes(bytes);
           
-          for (int i = 1; i < sheet.maxRows; i++) {
-            var row = sheet.row(i);
-            if (row.length >= 3) {
-              await _dbHelper.insertKaryawan({
-                'nik': row[0]?.value.toString() ?? '',
-                'nama_karyawan': row[1]?.value.toString() ?? '',
-                'area_kerja': row[2]?.value.toString() ?? '',
-              });
-              importedCount++;
+          await _dbHelper.deleteAllKaryawan();
+          int importedCount = 0;
+
+          for (var table in excel.tables.keys) {
+            var sheet = excel.tables[table];
+            if (sheet == null) continue;
+            
+            for (int i = 1; i < sheet.maxRows; i++) {
+              var row = sheet.row(i);
+              if (row.length >= 3) {
+                await _dbHelper.insertKaryawan({
+                  'nik': row[0]?.value.toString() ?? '',
+                  'nama_karyawan': row[1]?.value.toString() ?? '',
+                  'area_kerja': row[2]?.value.toString() ?? '',
+                });
+                importedCount++;
+              }
             }
           }
-        }
 
-        await _countCurrentData();
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Berhasil mengimpor $importedCount data karyawan dari file')),
-          );
+          await _countCurrentData();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Berhasil mengimpor $importedCount data karyawan dari file')),
+            );
+          }
         }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e')),
-          );
-        }
-      } finally {
-        setState(() => _isProcessing = false);
       }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    } finally {
+      setState(() => _isProcessing = false);
     }
   }
 
@@ -149,71 +152,185 @@ class _DownloadKaryawanPageState extends State<DownloadKaryawanPage> {
         backgroundColor: Colors.teal,
         foregroundColor: Colors.white,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF00897B), Color(0xFF004D40)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: Center(
+          child: SingleChildScrollView(
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 420),
+              margin: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: Colors.teal.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.teal),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.15),
+                    blurRadius: 15,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
               ),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text(
-                    'Total Data Karyawan Saat Ini:',
-                    style: TextStyle(fontSize: 16),
+
+                  /// HEADER
+                  Column(
+                    children: const [
+                      Icon(Icons.file_download, size: 60, color: Colors.teal),
+                      SizedBox(height: 12),
+                      Text(
+                        'Download Data Karyawan',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.teal,
+                        ),
+                      ),
+                    ],
                   ),
-                  Text(
-                    '$_totalData',
-                    style: const TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
+
+                  const SizedBox(height: 24),
+
+                  /// TOTAL DATA
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.teal.shade50,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Column(
+                      children: [
+                        const Text(
+                          'Total Data Karyawan Saat Ini',
+                          style: TextStyle(fontSize: 14),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '$_totalData',
+                          style: const TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.teal,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  /// LOADING / BUTTON
+                  if (_isProcessing)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 32),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else ...[
+
+                    /// BUTTON URL
+                    Material(
                       color: Colors.teal,
+                      borderRadius: BorderRadius.circular(14),
+                      elevation: 3,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(14),
+                        splashColor: Colors.white24,
+                        highlightColor: Colors.white10,
+                        onTap: _importFromUrl,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                          child: Row(
+                            children: const [
+                              Icon(Icons.cloud_download, color: Colors.white),
+                              SizedBox(width: 16),
+                              Expanded(
+                                child: Text(
+                                  'Ambil Data dari URL',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              Icon(Icons.arrow_forward_ios,
+                                  size: 16, color: Colors.white70),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    const Center(
+                      child: Text(
+                        'ATAU',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    /// BUTTON FILE
+                    Material(
+                      color: Colors.orange,
+                      borderRadius: BorderRadius.circular(14),
+                      elevation: 3,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(14),
+                        splashColor: Colors.white24,
+                        highlightColor: Colors.white10,
+                        onTap: _importFromFile,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                          child: Row(
+                            children: const [
+                              Icon(Icons.file_upload, color: Colors.white),
+                              SizedBox(width: 16),
+                              Expanded(
+                                child: Text(
+                                  'Import dari File Excel',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              Icon(Icons.arrow_forward_ios,
+                                  size: 16, color: Colors.white70),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+
+                  const SizedBox(height: 24),
+
+                  /// NOTE
+                  const Text(
+                    '* Format Excel: Kolom A (NIK), B (Nama), C (Area)',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey,
+                      fontStyle: FontStyle.italic,
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 32),
-            if (_isProcessing)
-              const Center(child: CircularProgressIndicator())
-            else ...[
-              ElevatedButton.icon(
-                onPressed: _importFromUrl,
-                icon: const Icon(Icons.cloud_download),
-                label: const Text('AMBIL DATA DARI URL SETTING'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.teal,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Center(child: Text('ATAU')),
-              const SizedBox(height: 16),
-              OutlinedButton.icon(
-                onPressed: _importFromFile,
-                icon: const Icon(Icons.file_upload),
-                label: const Text('IMPORT DARI FILE EXPORT (EXCEL)'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.teal,
-                  side: const BorderSide(color: Colors.teal),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
-            ],
-            const Spacer(),
-            const Text(
-              '* Pastikan format Excel: Kolom A (NIK), Kolom B (Nama), Kolom C (Area)',
-              style: TextStyle(fontSize: 12, color: Colors.grey, fontStyle: FontStyle.italic),
-            )
-          ],
+          ),
         ),
       ),
       bottomNavigationBar: const Padding(

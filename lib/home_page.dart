@@ -21,12 +21,11 @@ class _HomePageState extends State<HomePage> {
   String _statusFilter = "Semua"; // Semua, YES, NO
 
   // Lebar kolom tetap minimum untuk memastikan data tidak berdesakan
-  // Cari bagian ini di atas (Line 23-26)
   final double minColNik = 70;
   final double minColStatus = 100;
-  final double minColNama = 150; // Tambahkan ini jika ingin mengatur lebar Nama
-  final double minColArea = 100; // Tambahkan ini jika ingin mengatur lebar Area
-  final double minTableWidth = 1000;
+  final double minColNama = 130;
+  final double minColArea = 100;
+  final double minTableWidth = 600;
 
   @override
   void initState() {
@@ -144,6 +143,11 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    // Mendapatkan lebar layar
+    final screenWidth = MediaQuery.of(context).size.width;
+    // Anggap tablet jika lebar layar > 600
+    final isTablet = screenWidth > 600;
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -158,105 +162,45 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          _buildSearchAndFilter(),
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _displayData.isEmpty
-                    ? const Center(child: Text('Tidak ada data karyawan.'))
-                    : LayoutBuilder(
-                        builder: (context, constraints) {
-                          double tableWidth = constraints.maxWidth > minTableWidth
-                              ? constraints.maxWidth 
-                              : minTableWidth;
-                          
-                          // Konfigurasi agar bisa di-scroll dengan mouse drag (klik & tahan) di Windows/Desktop
-                          return ScrollConfiguration(
-                            behavior: ScrollConfiguration.of(context).copyWith(
-                              dragDevices: {
-                                PointerDeviceKind.touch, // Mendukung scroll sentuh (HP)
-                                PointerDeviceKind.mouse, // Mendukung scroll dengan klik & tarik mouse (Desktop)
-                              },
-                            ),
-                            child: Scrollbar(
-                              thumbVisibility: true, // Scrollbar selalu terlihat
-                              thickness: 8,          // Ketebalan batang scrollbar
-                              child: SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                child: SizedBox(
-                                  width: tableWidth, // Mengunci lebar tabel agar scroll horizontal muncul
-                                  height: constraints.maxHeight,
-                                  child: Column(
-                                    children: [
-                                      // --- HEADER ---
-                                      Container(
-                                        color: Colors.teal.shade700,
-                                        padding: const EdgeInsets.symmetric(vertical: 3),
-                                        child: Row(
-                                          children: [
-                                            _buildHeaderCell('NIK', width: minColNik),
-                                            _buildHeaderCell('Nama',width: minColNama, isExpanded: true),
-                                            _buildHeaderCell('Area Kerja',width:  minColArea, isExpanded: true),
-                                            _buildHeaderCell('Anggota', width: minColStatus, isCenter: true),
-                                          ],
-                                        ),
-                                      ),
-                                      // --- BODY ---
-                                      Expanded(
-                                        child: ListView.separated(
-                                          itemCount: _filteredData.length,
-                                          separatorBuilder: (context, index) => const Divider(height: 1),
-                                          itemBuilder: (context, index) {
-                                            final item = _filteredData[index];
-                                            final isAnggota = item['status'] == 'YES';
-                                            return Container(
-                                              // padding: const EdgeInsets.symmetric(vertical: 12),
-                                              child: Row(
-                                                children: [
-                                                  _buildCell(item['nik'].toString(), width: minColNik),
-                                                  _buildCell(item['nama'].toString(), isExpanded: true),
-                                                  _buildCell(item['area'].toString(), isExpanded: true),
-                                                  _buildStatusBadge(isAnggota, item['status']),
-                                                ],
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF00897B), Color(0xFF004D40)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
           ),
-          // Tombol Export PDF
-          if (!_isLoading && _filteredData.isNotEmpty)
+        ),
+        child: Column(
+          children: [
+            const SizedBox(height: 8),
+
+            /// SEARCH & FILTER (CARD)
             Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: _exportToPdf,
-                  icon: const Icon(Icons.picture_as_pdf),
-                  label: const Text('EXPORT PDF DATA TERPILIH', 
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.teal,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: _buildSearchAndFilterModern(),
+            ),
+
+            const SizedBox(height: 8),
+
+            /// DATA
+            Expanded(
+              child: Container(
+                margin: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
                 ),
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _displayData.isEmpty
+                    ? const Center(child: Text('Tidak ada data karyawan.'))
+                    : (MediaQuery.of(context).size.width > 600
+                    ? _buildTableView()
+                    : _buildCardView()),
               ),
             ),
-        ],
+          ],
+        ),
       ),
       bottomNavigationBar: const Padding(
         padding: EdgeInsets.all(12.0),
@@ -269,75 +213,216 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildSearchAndFilter() {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade400),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: _searchBy,
-                icon: const Icon(Icons.arrow_drop_down, color: Colors.teal),
-                style: const TextStyle(color: Colors.black87, fontSize: 14),
-                onChanged: (String? newValue) {
-                  setState(() {
-                    _searchBy = newValue!;
-                  });
-                },
-                items: <String>['Semua', 'NIK', 'Nama', 'Area']
-                    .map<DropdownMenuItem<String>>((String value) {
-                  return DropdownMenuItem<String>(
-                    value: value,
-                    child: Text(value),
-                  );
-                }).toList(),
-              ),
-            ),
+  Widget _buildTableView() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        double tableWidth = constraints.maxWidth > minTableWidth
+            ? constraints.maxWidth 
+            : minTableWidth;
+        
+        return ScrollConfiguration(
+          behavior: ScrollConfiguration.of(context).copyWith(
+            dragDevices: {
+              PointerDeviceKind.touch,
+              PointerDeviceKind.mouse,
+            },
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: TextField(
-              onChanged: (value) => setState(() => _searchQuery = value),
-              decoration: InputDecoration(
-                hintText: 'Cari ${_searchBy}...',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+          child: Scrollbar(
+            thumbVisibility: true,
+            thickness: 8,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SizedBox(
+                width: tableWidth,
+                height: constraints.maxHeight,
+                child: Column(
+                  children: [
+                    // --- HEADER ---
+                    Container(
+                      color: Colors.teal.shade900,
+                      padding: const EdgeInsets.symmetric(vertical: 3),
+                      child: Row(
+                        children: [
+                          _buildHeaderCell('NIK', width: minColNik),
+                          _buildHeaderCell('Nama',width: minColNama, isExpanded: true),
+                          _buildHeaderCell('Area Kerja',width:  minColArea, isExpanded: true),
+                          _buildHeaderCell('Anggota', width: minColStatus, isCenter: true),
+                        ],
+                      ),
+                    ),
+                    // --- BODY ---
+                    Expanded(
+                      child: ListView.separated(
+                        itemCount: _filteredData.length,
+                        separatorBuilder: (context, index) => const Divider(height: 1),
+                        itemBuilder: (context, index) {
+                          final item = _filteredData[index];
+                          final isAnggota = item['status'] == 'YES';
+                          return Container(
+                            child: Row(
+                              children: [
+                                _buildCell(item['nik'].toString(), width: minColNik),
+                                _buildCell(item['nama'].toString(), isExpanded: true),
+                                _buildCell(item['area'].toString(), isExpanded: true),
+                                _buildStatusBadge(isAnggota, item['status']),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                 ),
-                contentPadding: const EdgeInsets.symmetric(vertical: 0),
               ),
             ),
           ),
-          const SizedBox(width: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade400),
+        );
+      },
+    );
+  }
+
+  Widget _buildCardView() {
+    return ListView.builder(
+      itemCount: _filteredData.length,
+      padding: const EdgeInsets.all(8),
+      itemBuilder: (context, index) {
+        final item = _filteredData[index];
+        final isAnggota = item['status'] == 'YES';
+        return Card(
+          elevation: 2,
+          margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Atas: NIK - Nama Pegawai
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        "${item['nik']} - ${item['nama']}",
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: Colors.teal,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const Divider(),
+                // Bawah: Area Kerja - Anggota (Yes/No)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Row(
+                        children: [
+                          const Icon(Icons.location_on, size: 16, color: Colors.grey),
+                          const SizedBox(width: 4),
+                          Text(
+                            item['area'],
+                            style: const TextStyle(fontSize: 14, color: Colors.black87),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: isAnggota ? Colors.green.shade100 : Colors.red.shade100,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        isAnggota ? "Anggota: YES" : "Anggota: NO",
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: isAnggota ? Colors.green.shade800 : Colors.red.shade800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: _statusFilter,
-                icon: const Icon(Icons.filter_list, color: Colors.teal),
-                style: const TextStyle(color: Colors.black87, fontSize: 14),
-                onChanged: (String? newValue) {
-                  setState(() {
-                    _statusFilter = newValue!;
-                  });
-                },
-                items: <String>['Semua', 'YES', 'NO']
-                    .map<DropdownMenuItem<String>>((String value) {
-                  return DropdownMenuItem<String>(
-                    value: value,
-                    child: Text(value),
-                  );
-                }).toList(),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSearchAndFilterModern() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+          )
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              /// DROPDOWN SEARCH BY
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  value: _searchBy,
+                  decoration: InputDecoration(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  items: ['Semua', 'NIK', 'Nama', 'Area']
+                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                      .toList(),
+                  onChanged: (val) => setState(() => _searchBy = val!),
+                ),
+              ),
+
+              const SizedBox(width: 10),
+
+              /// FILTER STATUS
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  value: _statusFilter,
+                  decoration: InputDecoration(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  items: ['Semua', 'YES', 'NO']
+                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                      .toList(),
+                  onChanged: (val) => setState(() => _statusFilter = val!),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 10),
+
+          /// SEARCH
+          TextField(
+            onChanged: (value) => setState(() => _searchQuery = value),
+            decoration: InputDecoration(
+              hintText: 'Cari data...',
+              prefixIcon: const Icon(Icons.search),
+              filled: true,
+              fillColor: Colors.grey.shade100,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
               ),
             ),
           ),
@@ -349,7 +434,12 @@ class _HomePageState extends State<HomePage> {
   Widget _buildHeaderCell(String label, {double? width, bool isExpanded = false, bool isCenter = false}) {
     Widget content = Container(
       width: width,
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 12), // Sesuaikan vertical padding
+      decoration: BoxDecoration(
+        border: Border(
+          right: BorderSide(color: Colors.white.withOpacity(0.3), width: 1),
+        ),
+      ),
       child: Text(
         label,
         textAlign: isCenter ? TextAlign.center : TextAlign.start,
@@ -369,7 +459,7 @@ class _HomePageState extends State<HomePage> {
       alignment: Alignment.centerLeft,
       decoration: BoxDecoration(
         border: Border(
-          right: BorderSide(color: Colors.grey.shade400, width: 1),
+          right: BorderSide(color: Colors.grey.shade300, width: 1),
         ),
       ),
       child: Text(
@@ -387,7 +477,7 @@ class _HomePageState extends State<HomePage> {
   Widget _buildStatusBadge(bool isAnggota, String status) {
     return Container(
       width: minColStatus,
-      height: 35,
+      height: 45, // Samakan tinggi dengan _buildCell
       alignment: Alignment.center,
       decoration: BoxDecoration(
         border: Border(

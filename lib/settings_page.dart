@@ -132,70 +132,73 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _pickFile(String type) async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['xlsx', 'xls'],
-    );
+    try {
+      final FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['xlsx', 'xls'],
+      );
 
-    if (result != null && result.files.single.path != null) {
-      setState(() => _isLoading = true);
-      try {
-        var bytes = File(result.files.single.path!).readAsBytesSync();
-        var excel = Excel.decodeBytes(bytes);
-        
-        int importedCount = 0;
+      if (result != null && result.files.single.path != null) {
+        setState(() => _isLoading = true);
+        final file = File(result.files.single.path!);
+        if (await file.exists()) {
+          var bytes = file.readAsBytesSync();
+          var excel = Excel.decodeBytes(bytes);
+          
+          int importedCount = 0;
 
-        if (type == 'Data Anggota') {
-          await _dbHelper.deleteAllAnggota();
-          for (var table in excel.tables.keys) {
-            var sheet = excel.tables[table];
-            if (sheet == null) continue;
-            for (int i = 1; i < sheet.maxRows; i++) {
-              var row = sheet.row(i);
-              if (row.length >= 3) {
-                await _dbHelper.insertAnggota({
-                  'nomor_nik': row[0]?.value.toString() ?? '',
-                  'barcode': row[1]?.value.toString() ?? '',
-                  'nama_anggota': row[2]?.value.toString() ?? '',
-                });
-                importedCount++;
+          if (type == 'Data Anggota') {
+            await _dbHelper.deleteAllAnggota();
+            for (var table in excel.tables.keys) {
+              var sheet = excel.tables[table];
+              if (sheet == null) continue;
+              for (int i = 1; i < sheet.maxRows; i++) {
+                var row = sheet.row(i);
+                if (row.length >= 3) {
+                  await _dbHelper.insertAnggota({
+                    'nomor_nik': row[0]?.value.toString() ?? '',
+                    'barcode': row[1]?.value.toString() ?? '',
+                    'nama_anggota': row[2]?.value.toString() ?? '',
+                  });
+                  importedCount++;
+                }
+              }
+            }
+          } else {
+            // Data Karyawan
+            await _dbHelper.deleteAllKaryawan();
+            for (var table in excel.tables.keys) {
+              var sheet = excel.tables[table];
+              if (sheet == null) continue;
+              for (int i = 1; i < sheet.maxRows; i++) {
+                var row = sheet.row(i);
+                if (row.length >= 3) {
+                  await _dbHelper.insertKaryawan({
+                    'nik': row[0]?.value.toString() ?? '',
+                    'nama_karyawan': row[1]?.value.toString() ?? '',
+                    'area_kerja': row[2]?.value.toString() ?? '',
+                  });
+                  importedCount++;
+                }
               }
             }
           }
-        } else {
-          // Data Karyawan
-          await _dbHelper.deleteAllKaryawan();
-          for (var table in excel.tables.keys) {
-            var sheet = excel.tables[table];
-            if (sheet == null) continue;
-            for (int i = 1; i < sheet.maxRows; i++) {
-              var row = sheet.row(i);
-              if (row.length >= 3) {
-                await _dbHelper.insertKaryawan({
-                  'nik': row[0]?.value.toString() ?? '',
-                  'nama_karyawan': row[1]?.value.toString() ?? '',
-                  'area_kerja': row[2]?.value.toString() ?? '',
-                });
-                importedCount++;
-              }
-            }
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Berhasil mengimpor $importedCount $type')),
+            );
           }
         }
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Berhasil mengimpor $importedCount $type')),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e')),
-          );
-        }
-      } finally {
-        setState(() => _isLoading = false);
       }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
