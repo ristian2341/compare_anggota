@@ -16,6 +16,7 @@ class _HomePageState extends State<HomePage> {
   final DatabaseHelper _dbHelper = DatabaseHelper();
   List<Map<String, dynamic>> _displayData = [];
   bool _isLoading = true;
+  bool _isExporting = false;
   String _searchQuery = "";
   String _searchBy = "Semua"; // NIK, Nama, Area, Semua
   String _statusFilter = "Semua"; // Semua, YES, NO
@@ -26,6 +27,8 @@ class _HomePageState extends State<HomePage> {
   final double minColNama = 130;
   final double minColArea = 100;
   final double minTableWidth = 600;
+
+
 
   @override
   void initState() {
@@ -91,54 +94,59 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _exportToPdf() async {
-    final pdf = pw.Document();
-    final data = _filteredData;
+    setState(() => _isExporting = true);
 
-    pdf.addPage(
-      pw.MultiPage(
-        pageFormat: PdfPageFormat.a4.portrait,
-        margin: const pw.EdgeInsets.all(20),
-        build: (pw.Context context) {
-          return [
-            pw.Header(
-              level: 0,
-              child: pw.Text("Data Pegawai & Status Anggota", 
-                style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold))
-            ),
-            pw.TableHelper.fromTextArray(
-              headers: ['NIK', 'Nama', 'Area Kerja', 'Status'],
-              data: data.map((item) => [
-                item['nik'].toString(),
-                item['nama'].toString(),
-                item['area'].toString(),
-                item['status'].toString(),
-              ]).toList(),
-              headerStyle: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
-              headerDecoration: const pw.BoxDecoration(color: PdfColors.grey300),
-              cellAlignment: pw.Alignment.centerLeft,
-              cellStyle: const pw.TextStyle(fontSize: 10),
-              columnWidths: {
-                0: const pw.FixedColumnWidth(100), // NIK
-                1: const pw.FlexColumnWidth(3),    // Nama
-                2: const pw.FlexColumnWidth(3),    // Area Kerja
-                3: const pw.FixedColumnWidth(80),  // Status
-              },
-            ),
-            pw.Padding(padding: const pw.EdgeInsets.only(top: 20)),
-            pw.Align(
-              alignment: pw.Alignment.centerRight,
-              child: pw.Text("Dicetak pada: ${DateTime.now().toString().substring(0, 19)}",
-                style: const pw.TextStyle(fontSize: 10))
-            )
-          ];
-        },
-      ),
-    );
+    try {
+      final pdf = pw.Document();
+      final data = _filteredData;
 
-    await Printing.layoutPdf(
-      onLayout: (PdfPageFormat format) async => pdf.save(),
-      name: 'Data_Pegawai_Status.pdf',
-    );
+      pdf.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4.portrait,
+          margin: const pw.EdgeInsets.all(20),
+          build: (pw.Context context) {
+            return [
+              pw.Header(
+                level: 0,
+                child: pw.Text(
+                  "Data Pegawai & Status Anggota",
+                  style: pw.TextStyle(
+                      fontSize: 18, fontWeight: pw.FontWeight.bold),
+                ),
+              ),
+              pw.TableHelper.fromTextArray(
+                headers: ['NIK', 'Nama', 'Area Kerja', 'Status'],
+                data: data.map((item) => [
+                  item['nik'].toString(),
+                  item['nama'].toString(),
+                  item['area'].toString(),
+                  item['status'].toString(),
+                ]).toList(),
+              ),
+            ];
+          },
+        ),
+      );
+
+      await Printing.layoutPdf(
+        onLayout: (PdfPageFormat format) async => pdf.save(),
+        name: 'Data_Pegawai_Status.pdf',
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Export PDF berhasil')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal export: $e')),
+        );
+      }
+    } finally {
+      setState(() => _isExporting = false);
+    }
   }
 
   @override
@@ -162,46 +170,79 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF00897B), Color(0xFF004D40)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: Column(
-          children: [
-            const SizedBox(height: 8),
+      body: Stack(
+        children: [
 
-            /// SEARCH & FILTER (CARD)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: _buildSearchAndFilterModern(),
-            ),
-
-            const SizedBox(height: 8),
-
-            /// DATA
-            Expanded(
-              child: Container(
-                margin: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: _isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : _displayData.isEmpty
-                    ? const Center(child: Text('Tidak ada data karyawan.'))
-                    : (MediaQuery.of(context).size.width > 600
-                    ? _buildTableView()
-                    : _buildCardView()),
+          /// BODY UTAMA
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF00897B), Color(0xFF004D40)],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
               ),
             ),
-          ],
-        ),
+            child: Column(
+              children: [
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: _buildSearchAndFilterModern(),
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: Container(
+                    margin: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: _isLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : _displayData.isEmpty
+                        ? const Center(child: Text('Tidak ada data karyawan.'))
+                        : (MediaQuery.of(context).size.width > 600
+                        ? _buildTableView()
+                        : _buildCardView()),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          /// LOADING OVERLAY EXPORT
+          if (_isExporting)
+            Container(
+              color: Colors.black.withOpacity(0.5),
+              child: const Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(color: Colors.white),
+                    SizedBox(height: 16),
+                    Text(
+                      'Sedang membuat PDF...',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
       ),
+      floatingActionButton: (!_isLoading && _filteredData.isNotEmpty)
+          ? FloatingActionButton.extended(
+        onPressed: _exportToPdf,
+        backgroundColor: Colors.teal,
+        elevation: 6,
+        icon: const Icon(Icons.picture_as_pdf),
+        label: const Text(
+          'Export PDF',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+      )
+          : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       bottomNavigationBar: const Padding(
         padding: EdgeInsets.all(12.0),
         child: Text(

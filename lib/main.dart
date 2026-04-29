@@ -39,6 +39,7 @@ class _MainPageState extends State<MainPage> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
@@ -126,15 +127,12 @@ class _MainPageState extends State<MainPage> {
                   Column(
                     children: [
                       Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.teal.shade50,
-                        ),
                         padding: const EdgeInsets.all(16),
                         child: Image.asset(
                           'assets/images/my_icon.png',
-                          height: 60,
-                          width: 60,
+                          width: screenWidth * 0.15, // 30% dari lebar layar
+                          height: screenWidth * 0.15,
+                          fit: BoxFit.contain,
                         ),
                       ),
                       const SizedBox(height: 16),
