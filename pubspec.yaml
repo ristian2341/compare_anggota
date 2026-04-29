@@ -1,5 +1,5 @@
-name: compare_anggota
-description: "A new Flutter project."
+name: data_anggota
+description: "Data Anggota"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -48,6 +48,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_launcher_icons: ^0.13.1
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -98,6 +99,7 @@ flutter:
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
   assets:
+    - assets/images/
     - android/
     - android/app/
     - android/app/src/
@@ -125,3 +127,11 @@ flutter:
     - android/gradle/
     - android/gradle/wrapper/
 
+flutter_launcher_icons:
+  android: true
+  ios: true
+  windows:
+    generate: true
+    image_path: "assets/images/my_icon.png"
+  image_path: "assets/images/my_icon.png"
+  min_sdk_android: 21

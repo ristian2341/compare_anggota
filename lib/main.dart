@@ -96,14 +96,15 @@ class _MainPageState extends State<MainPage> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Column(
+                Column(
                   children: [
-                    Icon(
-                      Icons.account_circle,
-                      size: 80,
-                      color: Colors.teal,
+                    Image.asset(
+                      'assets/images/my_icon.png',
+                      height: 80,
+                      width: 80,
+                      fit: BoxFit.contain,
                     ),
-                    SizedBox(height: 16),
+                    const SizedBox(height: 16),
                     Text(
                       'Data Anggota',
                       style: TextStyle(
