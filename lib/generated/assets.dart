@@ -6,8 +6,7 @@ class Assets {
   Assets._();
 
   static const String buildGradle = 'android/build.gradle.kts';
-  static const String compareAnggotaAndroid =
-      'android/compare_anggota_android.iml';
+  static const String compareAnggotaAndroid = 'android/compare_anggota_android.iml';
   static const String gradle = 'android/gradle.properties';
   static const String gradlew = 'android/gradlew';
   static const String gradlewBat = 'android/gradlew.bat';
@@ -64,39 +63,34 @@ class $AssetsValuesGen {
 class $AssetsDrawableGen {
   const $AssetsDrawableGen();
 
-  final String launchBackground =
-      'android/app/src/main/res/drawable/launch_background.xml';
+  final String launchBackground = 'android/app/src/main/res/drawable/launch_background.xml';
 }
 
 class $AssetsMipmapHdpiGen {
   const $AssetsMipmapHdpiGen();
 
   final AssetGenImage icLauncher = const AssetGenImage(
-    'android/app/src/main/res/mipmap-hdpi/ic_launcher.png',
-  );
+      'android/app/src/main/res/mipmap-hdpi/ic_launcher.png');
 }
 
 class $AssetsMipmapMdpiGen {
   const $AssetsMipmapMdpiGen();
 
   final AssetGenImage icLauncher = const AssetGenImage(
-    'android/app/src/main/res/mipmap-mdpi/ic_launcher.png',
-  );
+      'android/app/src/main/res/mipmap-mdpi/ic_launcher.png');
 }
 
 class $AssetsDrawableV21Gen {
   const $AssetsDrawableV21Gen();
 
-  final String launchBackground =
-      'android/app/src/main/res/drawable-v21/launch_background.xml';
+  final String launchBackground = 'android/app/src/main/res/drawable-v21/launch_background.xml';
 }
 
 class $AssetsMipmapXhdpiGen {
   const $AssetsMipmapXhdpiGen();
 
   final AssetGenImage icLauncher = const AssetGenImage(
-    'android/app/src/main/res/mipmap-xhdpi/ic_launcher.png',
-  );
+      'android/app/src/main/res/mipmap-xhdpi/ic_launcher.png');
 }
 
 class $AssetsValuesNightGen {
@@ -109,16 +103,14 @@ class $AssetsMipmapXxhdpiGen {
   const $AssetsMipmapXxhdpiGen();
 
   final AssetGenImage icLauncher = const AssetGenImage(
-    'android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png',
-  );
+      'android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png');
 }
 
 class $AssetsMipmapXxxhdpiGen {
   const $AssetsMipmapXxxhdpiGen();
 
   final AssetGenImage icLauncher = const AssetGenImage(
-    'android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png',
-  );
+      'android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png');
 }
 
 class $AssetsJavaGen {
@@ -142,8 +134,7 @@ class $AssetsFlutterGen {
 class $AssetsPluginsGen {
   const $AssetsPluginsGen();
 
-  final String generatedPluginRegistrant =
-      'android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java';
+  final String generatedPluginRegistrant = 'android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java';
 }
 
 class $AssetsKotlinGen {
@@ -161,15 +152,13 @@ class $AssetsComGen {
 class $AssetsExampleGen {
   const $AssetsExampleGen();
 
-  final $AssetsCompareAnggotaGen compareAnggota =
-      const $AssetsCompareAnggotaGen();
+  final $AssetsCompareAnggotaGen compareAnggota = const $AssetsCompareAnggotaGen();
 }
 
 class $AssetsCompareAnggotaGen {
   const $AssetsCompareAnggotaGen();
 
-  final String mainActivity =
-      'android/app/src/main/kotlin/com/example/compare_anggota/MainActivity.kt';
+  final String mainActivity = 'android/app/src/main/kotlin/com/example/compare_anggota/MainActivity.kt';
 }
 
 class $AssetsDebugGen {
@@ -194,14 +183,14 @@ class $AssetsWrapperGen {
   const $AssetsWrapperGen();
 
   final String gradleWrapperJar = 'android/gradle/wrapper/gradle-wrapper.jar';
-  final String gradleWrapperProperties =
-      'android/gradle/wrapper/gradle-wrapper.properties';
+  final String gradleWrapperProperties = 'android/gradle/wrapper/gradle-wrapper.properties';
 }
 
 class AssetGenImage {
   const AssetGenImage(this._assetName, {this.size, this.flavors = const {}});
 
   final String _assetName;
+
 
   final Size? size;
   final Set<String> flavors;
@@ -259,8 +248,15 @@ class AssetGenImage {
     );
   }
 
-  ImageProvider provider({AssetBundle? bundle, String? package}) {
-    return AssetImage(_assetName, bundle: bundle, package: package);
+  ImageProvider provider({
+    AssetBundle? bundle,
+    String? package,
+  }) {
+    return AssetImage(
+      _assetName,
+      bundle: bundle,
+      package: package,
+    );
   }
 
   Widget custom({
@@ -277,3 +273,4 @@ class AssetGenImage {
 
   String get keyName => _assetName;
 }
+

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'login_page.dart';
 import 'home_page.dart'; // This is the comparison page
+import 'download_anggota_page.dart';
+import 'download_karyawan_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -128,7 +130,7 @@ class _MainPageState extends State<MainPage> {
                   Icons.person_add,
                   () async {
                     setState(() => _selectedMenuIndex = 0);
-                    final Uri url = Uri.parse('https://www.google.com/');
+                    final Uri url = Uri.parse('https://docs.google.com/forms/d/e/1FAIpQLSc-KGxy1af-CKOozYGerxkTMaNjWmo8ghDyJWAwSyf5nmfsCg/viewform?usp=sharing&ouid=107937966776220697350');
                     if (!await launchUrl(url)) {
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -146,7 +148,10 @@ class _MainPageState extends State<MainPage> {
                   Icons.download,
                   () {
                     setState(() => _selectedMenuIndex = 1);
-                    // TODO: Implement navigation
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const DownloadAnggotaPage()),
+                    );
                   },
                 ),
                 const SizedBox(height: 16),
@@ -157,7 +162,10 @@ class _MainPageState extends State<MainPage> {
                   Icons.file_download,
                   () {
                     setState(() => _selectedMenuIndex = 2);
-                    // TODO: Implement navigation
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const DownloadKaryawanPage()),
+                    );
                   },
                 ),
                 const SizedBox(height: 16),
@@ -177,6 +185,14 @@ class _MainPageState extends State<MainPage> {
               ],
             ),
           ),
+        ),
+      ),
+      bottomNavigationBar: const Padding(
+        padding: EdgeInsets.all(12.0),
+        child: Text(
+          'create by Rtie Developer @2026',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.black54, fontSize: 12, fontWeight: FontWeight.bold),
         ),
       ),
     );

@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'database_helper.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:excel/excel.dart' hide Border;
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -59,20 +61,141 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  Future<void> _exportData(String type) async {
+    setState(() => _isLoading = true);
+    try {
+      var excel = Excel.createExcel();
+      Sheet sheetObject = excel['Sheet1'];
+
+      if (type == 'Data Anggota') {
+        final data = await _dbHelper.queryAllAnggota();
+        // Header
+        sheetObject.appendRow([
+          TextCellValue('nomor_nik'),
+          TextCellValue('barcode'),
+          TextCellValue('nama_anggota')
+        ]);
+        for (var row in data) {
+          sheetObject.appendRow([
+            TextCellValue(row['nomor_nik']?.toString() ?? ''),
+            TextCellValue(row['barcode']?.toString() ?? ''),
+            TextCellValue(row['nama_anggota']?.toString() ?? ''),
+          ]);
+        }
+      } else {
+        final data = await _dbHelper.queryAllKaryawan();
+        // Header
+        sheetObject.appendRow([
+          TextCellValue('nik'),
+          TextCellValue('nama_karyawan'),
+          TextCellValue('area_kerja')
+        ]);
+        for (var row in data) {
+          sheetObject.appendRow([
+            TextCellValue(row['nik']?.toString() ?? ''),
+            TextCellValue(row['nama_karyawan']?.toString() ?? ''),
+            TextCellValue(row['area_kerja']?.toString() ?? ''),
+          ]);
+        }
+      }
+
+      String? outputFile = await FilePicker.platform.saveFile(
+        dialogTitle: 'Simpan Hasil Export $type',
+        fileName: 'export_${type.toLowerCase().replaceAll(' ', '_')}.xlsx',
+        type: FileType.custom,
+        allowedExtensions: ['xlsx'],
+      );
+
+      if (outputFile != null) {
+        var fileBytes = excel.save();
+        if (fileBytes != null) {
+          File(outputFile)
+            ..createSync(recursive: true)
+            ..writeAsBytesSync(fileBytes);
+          
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Berhasil export ke: $outputFile')),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal export: $e')),
+        );
+      }
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
   Future<void> _pickFile(String type) async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['xlsx', 'xls'],
     );
 
-    if (result != null) {
-      String? filePath = result.files.single.path;
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('File terpilih untuk $type: ${result.files.single.name}')),
-        );
+    if (result != null && result.files.single.path != null) {
+      setState(() => _isLoading = true);
+      try {
+        var bytes = File(result.files.single.path!).readAsBytesSync();
+        var excel = Excel.decodeBytes(bytes);
+        
+        int importedCount = 0;
+
+        if (type == 'Data Anggota') {
+          await _dbHelper.deleteAllAnggota();
+          for (var table in excel.tables.keys) {
+            var sheet = excel.tables[table];
+            if (sheet == null) continue;
+            for (int i = 1; i < sheet.maxRows; i++) {
+              var row = sheet.row(i);
+              if (row.length >= 3) {
+                await _dbHelper.insertAnggota({
+                  'nomor_nik': row[0]?.value.toString() ?? '',
+                  'barcode': row[1]?.value.toString() ?? '',
+                  'nama_anggota': row[2]?.value.toString() ?? '',
+                });
+                importedCount++;
+              }
+            }
+          }
+        } else {
+          // Data Karyawan
+          await _dbHelper.deleteAllKaryawan();
+          for (var table in excel.tables.keys) {
+            var sheet = excel.tables[table];
+            if (sheet == null) continue;
+            for (int i = 1; i < sheet.maxRows; i++) {
+              var row = sheet.row(i);
+              if (row.length >= 3) {
+                await _dbHelper.insertKaryawan({
+                  'nik': row[0]?.value.toString() ?? '',
+                  'nama_karyawan': row[1]?.value.toString() ?? '',
+                  'area_kerja': row[2]?.value.toString() ?? '',
+                });
+                importedCount++;
+              }
+            }
+          }
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Berhasil mengimpor $importedCount $type')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e')),
+          );
+        }
+      } finally {
+        setState(() => _isLoading = false);
       }
-      // TODO: Implement actual excel parsing and database insert
     }
   }
 
@@ -104,6 +227,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     controller: _linkAnggotaController,
                     label: 'URL Google Sheet Anggota',
                     onUpload: () => _pickFile('Data Anggota'),
+                    onExport: () => _exportData('Data Anggota'),
                   ),
                   const SizedBox(height: 20),
                   _buildDataCard(
@@ -111,6 +235,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     controller: _linkKaryawanController,
                     label: 'URL Google Sheet Karyawan',
                     onUpload: () => _pickFile('Data Karyawan'),
+                    onExport: () => _exportData('Data Karyawan'),
                   ),
                   const SizedBox(height: 30),
                   ElevatedButton(
@@ -129,6 +254,14 @@ class _SettingsPageState extends State<SettingsPage> {
                 ],
               ),
             ),
+      bottomNavigationBar: const Padding(
+        padding: EdgeInsets.all(12.0),
+        child: Text(
+          'create by Rtie Developer @2026',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.black54, fontSize: 12, fontWeight: FontWeight.bold),
+        ),
+      ),
     );
   }
 
@@ -137,6 +270,7 @@ class _SettingsPageState extends State<SettingsPage> {
     required TextEditingController controller,
     required String label,
     required VoidCallback onUpload,
+    required VoidCallback onExport,
   }) {
     return Card(
       elevation: 4,
@@ -166,21 +300,42 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
             ),
             const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: onUpload,
-                icon: const Icon(Icons.upload_file),
-                label: const Text('UPLOAD DARI FILE EXCEL LOCAL'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.teal,
-                  side: const BorderSide(color: Colors.teal),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: onUpload,
+                    icon: const Icon(Icons.upload_file),
+                    label: const Text('UPLOAD EXCEL'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.teal,
+                      side: const BorderSide(color: Colors.teal),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
                   ),
                 ),
-              ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: onExport,
+                    icon: const Icon(Icons.download_for_offline),
+                    label: const Text('EXPORT DATA'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.teal.shade50,
+                      foregroundColor: Colors.teal,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        side: BorderSide(color: Colors.teal.shade200),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),

@@ -86,6 +86,14 @@ class _LoginPageState extends State<LoginPage> {
           ],
         ),
       ),
+      bottomNavigationBar: const Padding(
+        padding: EdgeInsets.all(12.0),
+        child: Text(
+          'create by Rtie Developer @2026',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.black54, fontSize: 12, fontWeight: FontWeight.bold),
+        ),
+      ),
     );
   }
 }

@@ -93,8 +93,7 @@ class DatabaseHelper {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         nik TEXT,
         nama_karyawan TEXT,
-        area_kerja TEXT,
-        anggota INTEGER
+        area_kerja TEXT
       )
     ''');
 
@@ -185,6 +184,13 @@ class DatabaseHelper {
     return await db.query('data_anggota');
   }
 
+  Future<int> deleteAllAnggota() async {
+    Database db = await database;
+    int result = await db.delete('data_anggota');
+    await db.execute("DELETE FROM sqlite_sequence WHERE name = 'data_anggota'");
+    return result;
+  }
+
   // --- DATA KARYAWAN METHODS ---
   Future<int> insertKaryawan(Map<String, dynamic> row) async {
     Database db = await database;
@@ -194,6 +200,13 @@ class DatabaseHelper {
   Future<List<Map<String, dynamic>>> queryAllKaryawan() async {
     Database db = await database;
     return await db.query('data_karyawan');
+  }
+
+  Future<int> deleteAllKaryawan() async {
+    Database db = await database;
+    int result = await db.delete('data_karyawan');
+    await db.execute("DELETE FROM sqlite_sequence WHERE name = 'data_karyawan'");
+    return result;
   }
 
   // Auth function
