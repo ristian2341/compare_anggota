@@ -135,7 +135,7 @@ class _MainPageState extends State<MainPage> {
                           fit: BoxFit.contain,
                         ),
                       ),
-                      const SizedBox(height: 16),
+
                       const Text(
                         'Data Anggota',
                         style: TextStyle(
@@ -144,7 +144,6 @@ class _MainPageState extends State<MainPage> {
                           color: Colors.teal,
                         ),
                       ),
-                      const SizedBox(height: 4),
                       const Text(
                         'PUK SPAMK FSPMI PT. JAI',
                         textAlign: TextAlign.center,

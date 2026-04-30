@@ -38,7 +38,7 @@ class _SettingsPageState extends State<SettingsPage> {
         });
       }
     } catch (e) {
-      print("Error loading settings: $e");
+      debugPrint("Error loading settings: $e");
       setState(() {
         _isLoading = false;
       });
@@ -57,7 +57,10 @@ class _SettingsPageState extends State<SettingsPage> {
     );
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Konfigurasi disimpan')),
+      const SnackBar(
+        content: Text('Konfigurasi berhasil disimpan'),
+        backgroundColor: Colors.green,
+      ),
     );
   }
 
@@ -69,7 +72,6 @@ class _SettingsPageState extends State<SettingsPage> {
 
       if (type == 'Data Anggota') {
         final data = await _dbHelper.queryAllAnggota();
-        // Header
         sheetObject.appendRow([
           TextCellValue('nomor_nik'),
           TextCellValue('barcode'),
@@ -84,7 +86,6 @@ class _SettingsPageState extends State<SettingsPage> {
         }
       } else {
         final data = await _dbHelper.queryAllKaryawan();
-        // Header
         sheetObject.appendRow([
           TextCellValue('nik'),
           TextCellValue('nama_karyawan'),
@@ -165,7 +166,6 @@ class _SettingsPageState extends State<SettingsPage> {
               }
             }
           } else {
-            // Data Karyawan
             await _dbHelper.deleteAllKaryawan();
             for (var table in excel.tables.keys) {
               var sheet = excel.tables[table];
@@ -205,64 +205,85 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
       appBar: AppBar(
         title: const Text('Pengaturan Data'),
-        backgroundColor: Colors.teal,
+        backgroundColor: Colors.teal.shade800,
         foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            onPressed: _saveSettings,
-            icon: const Icon(Icons.save),
-            tooltip: 'Simpan Semua',
-          )
-        ],
+        elevation: 0,
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildDataCard(
-                    title: 'Frame Data Anggota',
-                    controller: _linkAnggotaController,
-                    label: 'URL Google Sheet Anggota',
-                    onUpload: () => _pickFile('Data Anggota'),
-                    onExport: () => _exportData('Data Anggota'),
-                  ),
-                  const SizedBox(height: 20),
-                  _buildDataCard(
-                    title: 'Frame Data Karyawan',
-                    controller: _linkKaryawanController,
-                    label: 'URL Google Sheet Karyawan',
-                    onUpload: () => _pickFile('Data Karyawan'),
-                    onExport: () => _exportData('Data Karyawan'),
-                  ),
-                  const SizedBox(height: 30),
-                  ElevatedButton(
-                    onPressed: _saveSettings,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.teal,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.teal.shade800,
+              Colors.teal.shade400,
+            ],
+          ),
+        ),
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator(color: Colors.white))
+            : Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Container(
+                    constraints: const BoxConstraints(maxWidth: 500),
+                    child: Column(
+                      children: [
+                        _buildDataCard(
+                          title: 'Frame Data Anggota',
+                          icon: Icons.people,
+                          controller: _linkAnggotaController,
+                          label: 'URL Google Sheet Anggota',
+                          onUpload: () => _pickFile('Data Anggota'),
+                          onExport: () => _exportData('Data Anggota'),
+                        ),
+                        const SizedBox(height: 20),
+                        _buildDataCard(
+                          title: 'Frame Data Karyawan',
+                          icon: Icons.badge,
+                          controller: _linkKaryawanController,
+                          label: 'URL Google Sheet Karyawan',
+                          onUpload: () => _pickFile('Data Karyawan'),
+                          onExport: () => _exportData('Data Karyawan'),
+                        ),
+                        const SizedBox(height: 32),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: _saveSettings,
+                            icon: const Icon(Icons.save),
+                            label: const Text(
+                              'SIMPAN SEMUA PERUBAHAN',
+                              style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: Colors.teal.shade800,
+                              padding: const EdgeInsets.symmetric(vertical: 20),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(15),
+                              ),
+                              elevation: 5,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    child: const Text('SIMPAN SEMUA PERUBAHAN',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
-                ],
+                ),
               ),
-            ),
-      bottomNavigationBar: const Padding(
-        padding: EdgeInsets.all(12.0),
-        child: Text(
+      ),
+      bottomNavigationBar: Container(
+        color: Colors.teal.shade400,
+        padding: const EdgeInsets.all(12.0),
+        child: const Text(
           'create by Rtie Developer @2026',
           textAlign: TextAlign.center,
-          style: TextStyle(color: Colors.black54, fontSize: 12, fontWeight: FontWeight.bold),
+          style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
         ),
       ),
     );
@@ -270,78 +291,96 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Widget _buildDataCard({
     required String title,
+    required IconData icon,
     required TextEditingController controller,
     required String label,
     required VoidCallback onUpload,
     required VoidCallback onExport,
   }) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.teal,
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.95),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 15,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: Colors.teal.shade700, size: 28),
+              const SizedBox(width: 12),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.teal.shade800,
+                ),
               ),
-            ),
-            const Divider(thickness: 1.5),
-            const SizedBox(height: 12),
-            TextField(
-              controller: controller,
-              decoration: InputDecoration(
-                labelText: label,
-                hintText: 'Masukkan link google sheet...',
-                border: const OutlineInputBorder(),
-                prefixIcon: const Icon(Icons.link, color: Colors.teal),
+            ],
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Divider(thickness: 1),
+          ),
+          TextField(
+            controller: controller,
+            decoration: InputDecoration(
+              labelText: label,
+              hintText: 'Masukkan link google sheet...',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.teal.shade200),
               ),
+              prefixIcon: const Icon(Icons.link, color: Colors.teal),
             ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: onUpload,
-                    icon: const Icon(Icons.upload_file),
-                    label: const Text('UPLOAD EXCEL'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.teal,
-                      side: const BorderSide(color: Colors.teal),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: onUpload,
+                  icon: const Icon(Icons.upload_file),
+                  label: const Text('UPLOAD EXCEL', style: TextStyle(fontSize: 12)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.teal.shade700,
+                    side: BorderSide(color: Colors.teal.shade700),
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: onExport,
+                  icon: const Icon(Icons.download),
+                  label: const Text('EXPORT DATA', style: TextStyle(fontSize: 12)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.teal.shade50,
+                    foregroundColor: Colors.teal.shade700,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      side: BorderSide(color: Colors.teal.shade100),
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: onExport,
-                    icon: const Icon(Icons.download_for_offline),
-                    label: const Text('EXPORT DATA'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.teal.shade50,
-                      foregroundColor: Colors.teal,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        side: BorderSide(color: Colors.teal.shade200),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
