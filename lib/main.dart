@@ -130,8 +130,8 @@ class _MainPageState extends State<MainPage> {
                         padding: const EdgeInsets.all(16),
                         child: Image.asset(
                           'assets/images/my_icon.png',
-                          width: screenWidth * 0.30, // 30% dari lebar layar
-                          height: screenWidth * 0.30,
+                          width: screenWidth * 0.20, // 30% dari lebar layar
+                          height: screenWidth * 0.20,
                           fit: BoxFit.contain,
                         ),
                       ),
