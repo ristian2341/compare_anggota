@@ -1,5 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:excel/excel.dart' hide Border;
+import 'database_helper.dart';
 import 'login_page.dart';
 import 'home_page.dart'; // This is the comparison page
 import 'download_anggota_page.dart';
@@ -36,6 +40,67 @@ class MainPage extends StatefulWidget {
 
 class _MainPageState extends State<MainPage> {
   int? _selectedMenuIndex;
+  final DatabaseHelper _dbHelper = DatabaseHelper();
+
+  Future<void> _importSettings() async {
+    try {
+      final FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['xlsx', 'xls'],
+      );
+
+      if (result != null && result.files.single.path != null) {
+        final file = File(result.files.single.path!);
+        var bytes = file.readAsBytesSync();
+        var excel = Excel.decodeBytes(bytes);
+
+        String? linkAnggota;
+        String? linkKaryawan;
+
+        for (var table in excel.tables.keys) {
+          var sheet = excel.tables[table];
+          if (sheet == null) continue;
+
+          for (int i = 1; i < sheet.maxRows; i++) {
+            var row = sheet.row(i);
+            if (row.length >= 2) {
+              String type = row[0]?.value.toString() ?? '';
+              String url = row[1]?.value.toString() ?? '';
+
+              if (type.contains('Anggota')) {
+                linkAnggota = url;
+              } else if (type.contains('Karyawan')) {
+                linkKaryawan = url;
+              }
+            }
+          }
+        }
+
+        if (linkAnggota != null || linkKaryawan != null) {
+          await _dbHelper.updateSettings(
+            linkAnggota ?? '',
+            linkKaryawan ?? '',
+          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Konfigurasi URL berhasil diimpor'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        } else {
+          throw 'Format file tidak sesuai atau data kosong';
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal impor konfigurasi: $e')),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -82,14 +147,22 @@ class _MainPageState extends State<MainPage> {
               ),
             ),
             ListTile(
-              leading: const Icon(Icons.login),
-              title: const Text('Settings Data'),
+              leading: const Icon(Icons.settings_applications),
+              title: const Text('Setting'),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => const LoginPage()),
                 );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.upload_file),
+              title: const Text('Import Config URL'),
+              onTap: () {
+                Navigator.pop(context);
+                _importSettings();
               },
             ),
           ],

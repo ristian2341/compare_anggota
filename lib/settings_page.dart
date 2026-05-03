@@ -64,6 +64,59 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  Future<void> _exportAllSettings() async {
+    setState(() => _isLoading = true);
+    try {
+      var excel = Excel.createExcel();
+      Sheet sheetObject = excel['Sheet1'];
+
+      sheetObject.appendRow([
+        TextCellValue('Tipe Data'),
+        TextCellValue('URL Google Sheet'),
+      ]);
+
+      sheetObject.appendRow([
+        TextCellValue('Data Anggota'),
+        TextCellValue(_linkAnggotaController.text),
+      ]);
+
+      sheetObject.appendRow([
+        TextCellValue('Data Karyawan'),
+        TextCellValue(_linkKaryawanController.text),
+      ]);
+
+      String? outputFile = await FilePicker.platform.saveFile(
+        dialogTitle: 'Simpan Konfigurasi URL',
+        fileName: 'konfigurasi_url_settings.xlsx',
+        type: FileType.custom,
+        allowedExtensions: ['xlsx'],
+      );
+
+      if (outputFile != null) {
+        var fileBytes = excel.save();
+        if (fileBytes != null) {
+          File(outputFile)
+            ..createSync(recursive: true)
+            ..writeAsBytesSync(fileBytes);
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Berhasil export konfigurasi ke: $outputFile')),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal export konfigurasi: $e')),
+        );
+      }
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
   Future<void> _exportData(String type) async {
     setState(() => _isLoading = true);
     try {
@@ -210,6 +263,13 @@ class _SettingsPageState extends State<SettingsPage> {
         backgroundColor: Colors.teal.shade800,
         foregroundColor: Colors.white,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.share),
+            tooltip: 'Export Konfigurasi URL',
+            onPressed: _exportAllSettings,
+          ),
+        ],
       ),
       body: Container(
         width: double.infinity,
@@ -251,25 +311,50 @@ class _SettingsPageState extends State<SettingsPage> {
                           onExport: () => _exportData('Data Karyawan'),
                         ),
                         const SizedBox(height: 32),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            onPressed: _saveSettings,
-                            icon: const Icon(Icons.save),
-                            label: const Text(
-                              'SIMPAN SEMUA PERUBAHAN',
-                              style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: Colors.teal.shade800,
-                              padding: const EdgeInsets.symmetric(vertical: 20),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(15),
+                        Row(
+                          children: [
+                            Expanded(
+                              flex: 2,
+                              child: ElevatedButton.icon(
+                                onPressed: _saveSettings,
+                                icon: const Icon(Icons.save),
+                                label: const Text(
+                                  'SIMPAN PERUBAHAN',
+                                  style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.white,
+                                  foregroundColor: Colors.teal.shade800,
+                                  padding: const EdgeInsets.symmetric(vertical: 20),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(15),
+                                  ),
+                                  elevation: 5,
+                                ),
                               ),
-                              elevation: 5,
                             ),
-                          ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              flex: 1,
+                              child: ElevatedButton.icon(
+                                onPressed: _exportAllSettings,
+                                icon: const Icon(Icons.share),
+                                label: const Text(
+                                  'EXPORT URL',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.orange.shade700,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 20),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(15),
+                                  ),
+                                  elevation: 5,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
