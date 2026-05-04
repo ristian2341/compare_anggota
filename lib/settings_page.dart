@@ -263,13 +263,6 @@ class _SettingsPageState extends State<SettingsPage> {
         backgroundColor: Colors.teal.shade800,
         foregroundColor: Colors.white,
         elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.share),
-            tooltip: 'Export Konfigurasi URL',
-            onPressed: _exportAllSettings,
-          ),
-        ],
       ),
       body: Container(
         width: double.infinity,
