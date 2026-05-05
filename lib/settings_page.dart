@@ -331,7 +331,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         ),
                         const SizedBox(height: 32),
                         Row(
-                          children: [
+                          children:[
                             Expanded(
                               flex: 2,
                               child: ElevatedButton.icon(
@@ -339,10 +339,10 @@ class _SettingsPageState extends State<SettingsPage> {
                                 icon: const Icon(Icons.save),
                                 label: const Text(
                                   'SIMPAN PERUBAHAN',
-                                  style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2),
+                                  style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 2),
                                 ),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.white,
+                                  backgroundColor: Colors.teal.shade400,
                                   foregroundColor: Colors.teal.shade800,
                                   padding: const EdgeInsets.symmetric(vertical: 20),
                                   shape: RoundedRectangleBorder(
@@ -352,14 +352,18 @@ class _SettingsPageState extends State<SettingsPage> {
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 12),
+                          ],
+                        ),
+                        const SizedBox(height: 32),
+                        Row(
+                          children: [
                             Expanded(
                               flex: 1,
                               child: ElevatedButton.icon(
                                 onPressed: _importSettings,
                                 icon: const Icon(Icons.upload),
                                 label: const Text(
-                                  'IMPORT',
+                                  'Import Setting',
                                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
                                 ),
                                 style: ElevatedButton.styleFrom(
@@ -380,7 +384,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                 onPressed: _exportAllSettings,
                                 icon: const Icon(Icons.share),
                                 label: const Text(
-                                  'EXPORT',
+                                  'Export Setting',
                                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
                                 ),
                                 style: ElevatedButton.styleFrom(

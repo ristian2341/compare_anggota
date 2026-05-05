@@ -271,19 +271,6 @@ class _DownloadAnggotaPageState extends State<DownloadAnggotaPage> {
                     ),
                     const SizedBox(height: 16),
                   ],
-
-                  const SizedBox(height: 24),
-
-                  /// NOTE
-                  const Text(
-                    '* Format Excel: Kolom A (NIK), B (Barcode), C (Nama)',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
                 ],
               ),
             ),

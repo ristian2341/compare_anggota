@@ -271,19 +271,6 @@ class _DownloadKaryawanPageState extends State<DownloadKaryawanPage> {
 
                     const SizedBox(height: 16),
                   ],
-
-                  const SizedBox(height: 24),
-
-                  /// NOTE
-                  const Text(
-                    '* Format Excel: Kolom A (NIK), B (Nama), C (Area)',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
                 ],
               ),
             ),

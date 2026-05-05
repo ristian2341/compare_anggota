@@ -252,13 +252,13 @@ class _HomePageState extends State<HomePage> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'Anggota: ${(_filteredData.length > 0 ? (_filteredData.where((e) => e['status'] == 'YES').length / _filteredData.length * 100) : 0).toStringAsFixed(1)}%',
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                      'Anggota: ${_filteredData.where((e) => e['status'] == 'YES').length} (${(_filteredData.length > 0 ? (_filteredData.where((e) => e['status'] == 'YES').length / _filteredData.length * 100) : 0).toStringAsFixed(1)}%)',
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       'Pegawai: ${_filteredData.length} data',
-                      style: const TextStyle(color: Colors.white70, fontSize: 12),
+                      style: const TextStyle(color: Colors.white70, fontSize: 14),
                     ),
                   ],
                 ),
