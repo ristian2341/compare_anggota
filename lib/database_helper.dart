@@ -59,8 +59,8 @@ class DatabaseHelper {
           
           await db.insert('setting', {
             'id': 1,
-            'link_data_anggota': '',
-            'link_data_karyawan': '',
+            'link_data_anggota': 'https://docs.google.com/spreadsheets/d/1IC7IBXQEjRX9a-HAIChOJPijwKa_nwJ25gzZWJm163o/edit?usp=drivesdk',
+            'link_data_karyawan': 'https://docs.google.com/spreadsheets/d/1AKaZQgwJKf7Nz6AxwyEtxZJy0zJWvUkXIZ--mR8VW80/edit?usp=drivesdk',
           }, conflictAlgorithm: ConflictAlgorithm.ignore);
         }
       },
