@@ -160,7 +160,7 @@ class _HomePageState extends State<HomePage> {
       backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text('Data Pegawai & Status Anggota',
-            style: TextStyle(fontWeight: FontWeight.bold)),
+            style: const TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.teal,
         foregroundColor: Colors.white,
         actions: [
@@ -189,7 +189,7 @@ class _HomePageState extends State<HomePage> {
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: _buildSearchAndFilterModern(),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 Expanded(
                   child: Container(
                     margin: const EdgeInsets.all(12),
@@ -214,13 +214,13 @@ class _HomePageState extends State<HomePage> {
           if (_isExporting)
             Container(
               color: Colors.black.withOpacity(0.5),
-              child: const Center(
+              child: Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    CircularProgressIndicator(color: Colors.white),
-                    SizedBox(height: 16),
-                    Text(
+                    const CircularProgressIndicator(color: Colors.white),
+                    const SizedBox(height: 16),
+                    const Text(
                       'Sedang membuat PDF...',
                       style: TextStyle(color: Colors.white),
                     ),
@@ -253,11 +253,16 @@ class _HomePageState extends State<HomePage> {
                   children: [
                     Text(
                       'Anggota: ${_filteredData.where((e) => e['status'] == 'YES').length} (${(_filteredData.length > 0 ? (_filteredData.where((e) => e['status'] == 'YES').length / _filteredData.length * 100) : 0).toStringAsFixed(1)}%)',
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Pegawai: ${_filteredData.length} data',
+                      'Non Anggota: ${_filteredData.where((e) => e['status'] == 'NO').length} (${(_filteredData.length > 0 ? (_filteredData.where((e) => e['status'] == 'NO').length / _filteredData.length * 100) : 0).toStringAsFixed(1)}%)',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Total Pegawai: ${_filteredData.length} data',
                       style: const TextStyle(color: Colors.white70, fontSize: 14),
                     ),
                   ],
@@ -434,7 +439,7 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildSearchAndFilterModern() {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -458,6 +463,7 @@ class _HomePageState extends State<HomePage> {
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
+                    hintStyle: TextStyle(fontSize: 12),
                   ),
                   items: ['Semua', 'NIK', 'Nama', 'Area']
                       .map((e) => DropdownMenuItem(value: e, child: Text(e)))
@@ -466,7 +472,7 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
 
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
 
               /// FILTER STATUS
               Expanded(
@@ -477,6 +483,7 @@ class _HomePageState extends State<HomePage> {
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
+                    hintStyle : TextStyle(fontSize: 12, ),
                   ),
                   items: ['Semua', 'YES', 'NO']
                       .map((e) => DropdownMenuItem(value: e, child: Text(e)))
@@ -494,6 +501,7 @@ class _HomePageState extends State<HomePage> {
             onChanged: (value) => setState(() => _searchQuery = value),
             decoration: InputDecoration(
               hintText: 'Cari data...',
+              hintStyle : TextStyle(fontSize: 12),
               prefixIcon: const Icon(Icons.search),
               filled: true,
               fillColor: Colors.grey.shade100,

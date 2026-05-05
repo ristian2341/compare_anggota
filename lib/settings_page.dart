@@ -286,7 +286,7 @@ class _SettingsPageState extends State<SettingsPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Pengaturan Data'),
-        backgroundColor: Colors.teal.shade800,
+        backgroundColor: Colors.teal,
         foregroundColor: Colors.white,
         elevation: 0,
       ),
@@ -342,7 +342,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                   style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 2),
                                 ),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.teal.shade400,
+                                  backgroundColor: Colors.teal.shade100,
                                   foregroundColor: Colors.teal.shade800,
                                   padding: const EdgeInsets.symmetric(vertical: 20),
                                   shape: RoundedRectangleBorder(
