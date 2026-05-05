@@ -59,8 +59,8 @@ class DatabaseHelper {
           
           await db.insert('setting', {
             'id': 1,
-            'link_data_anggota': '',
-            'link_data_karyawan': '',
+            'link_data_anggota': 'https://docs.google.com/spreadsheets/d/1IC7IBXQEjRX9a-HAIChOJPijwKa_nwJ25gzZWJm163o/edit?usp=drivesdk',
+            'link_data_karyawan': 'https://docs.google.com/spreadsheets/d/1AKaZQgwJKf7Nz6AxwyEtxZJy0zJWvUkXIZ--mR8VW80/edit?usp=drivesdk',
           }, conflictAlgorithm: ConflictAlgorithm.ignore);
         }
       },
@@ -109,23 +109,14 @@ class DatabaseHelper {
     // Insert default users for testing
     await db.insert('user', {
       'nama_user': 'admin',
-      'password': 'admin',
-    });
-    // ... rest of inserts ...
-    await db.insert('user', {
-      'nama_user': 'puk',
-      'password': 'puk',
-    });
-    await db.insert('user', {
-      'nama_user': 'user1',
-      'password': 'password123',
+      'password': 'P@ssw0rd',
     });
 
     // Insert default setting row
     await db.insert('setting', {
       'id': 1,
-      'link_data_anggota': '',
-      'link_data_karyawan': '',
+      'link_data_anggota': 'https://docs.google.com/spreadsheets/d/1IC7IBXQEjRX9a-HAIChOJPijwKa_nwJ25gzZWJm163o/edit?usp=drivesdk',
+      'link_data_karyawan': 'https://docs.google.com/spreadsheets/d/1AKaZQgwJKf7Nz6AxwyEtxZJy0zJWvUkXIZ--mR8VW80/edit?usp=drivesdk',
     });
   }
 

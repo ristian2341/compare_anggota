@@ -64,52 +64,78 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Future<void> _exportAllSettings() async {
-    setState(() => _isLoading = true);
+  Future<void> _importSettings() async {
     try {
-      var excel = Excel.createExcel();
-      Sheet sheetObject = excel['Sheet1'];
-
-      sheetObject.appendRow([
-        TextCellValue('Tipe Data'),
-        TextCellValue('URL Google Sheet'),
-      ]);
-
-      sheetObject.appendRow([
-        TextCellValue('Data Anggota'),
-        TextCellValue(_linkAnggotaController.text),
-      ]);
-
-      sheetObject.appendRow([
-        TextCellValue('Data Karyawan'),
-        TextCellValue(_linkKaryawanController.text),
-      ]);
-
-      String? outputFile = await FilePicker.platform.saveFile(
-        dialogTitle: 'Simpan Konfigurasi URL',
-        fileName: 'konfigurasi_url_settings.xlsx',
+      final FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['xlsx'],
+        allowedExtensions: ['sql'],
       );
 
-      if (outputFile != null) {
-        var fileBytes = excel.save();
-        if (fileBytes != null) {
-          File(outputFile)
-            ..createSync(recursive: true)
-            ..writeAsBytesSync(fileBytes);
+      if (result != null && result.files.single.path != null) {
+        setState(() => _isLoading = true);
+        final file = File(result.files.single.path!);
+        String sqlContent = await file.readAsString();
 
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Berhasil export konfigurasi ke: $outputFile')),
-            );
-          }
+        // Eksekusi raw SQL ke database
+        final db = await _dbHelper.database;
+        await db.execute(sqlContent);
+
+        // Muat ulang data ke controller
+        await _loadSettings();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Konfigurasi URL berhasil diimpor dari SQL'),
+              backgroundColor: Colors.green,
+            ),
+          );
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal export konfigurasi: $e')),
+          SnackBar(content: Text('Gagal impor SQL: $e')),
+        );
+      }
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _exportAllSettings() async {
+    setState(() => _isLoading = true);
+    try {
+      String linkAnggota = _linkAnggotaController.text;
+      String linkKaryawan = _linkKaryawanController.text;
+
+      // Generate SQL Script
+      String sqlContent = "-- Backup Setting URL\n"
+          "-- Generated on: ${DateTime.now()}\n\n"
+          "INSERT OR REPLACE INTO setting (id, link_data_anggota, link_data_karyawan) \n"
+          "VALUES (1, '$linkAnggota', '$linkKaryawan');";
+
+      String? outputFile = await FilePicker.platform.saveFile(
+        dialogTitle: 'Simpan Backup SQL URL',
+        fileName: 'backup_url_settings.sql',
+        type: FileType.custom,
+        allowedExtensions: ['sql'],
+      );
+
+      if (outputFile != null) {
+        final file = File(outputFile);
+        await file.writeAsString(sqlContent);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Berhasil export SQL ke: $outputFile')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal export SQL: $e')),
         );
       }
     } finally {
@@ -263,13 +289,6 @@ class _SettingsPageState extends State<SettingsPage> {
         backgroundColor: Colors.teal.shade800,
         foregroundColor: Colors.white,
         elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.share),
-            tooltip: 'Export Konfigurasi URL',
-            onPressed: _exportAllSettings,
-          ),
-        ],
       ),
       body: Container(
         width: double.infinity,
@@ -312,7 +331,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         ),
                         const SizedBox(height: 32),
                         Row(
-                          children: [
+                          children:[
                             Expanded(
                               flex: 2,
                               child: ElevatedButton.icon(
@@ -320,10 +339,10 @@ class _SettingsPageState extends State<SettingsPage> {
                                 icon: const Icon(Icons.save),
                                 label: const Text(
                                   'SIMPAN PERUBAHAN',
-                                  style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2),
+                                  style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 2),
                                 ),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.white,
+                                  backgroundColor: Colors.teal.shade400,
                                   foregroundColor: Colors.teal.shade800,
                                   padding: const EdgeInsets.symmetric(vertical: 20),
                                   shape: RoundedRectangleBorder(
@@ -333,15 +352,40 @@ class _SettingsPageState extends State<SettingsPage> {
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 12),
+                          ],
+                        ),
+                        const SizedBox(height: 32),
+                        Row(
+                          children: [
+                            Expanded(
+                              flex: 1,
+                              child: ElevatedButton.icon(
+                                onPressed: _importSettings,
+                                icon: const Icon(Icons.upload),
+                                label: const Text(
+                                  'Import Setting',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.blue.shade700,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 20),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(15),
+                                  ),
+                                  elevation: 5,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
                             Expanded(
                               flex: 1,
                               child: ElevatedButton.icon(
                                 onPressed: _exportAllSettings,
                                 icon: const Icon(Icons.share),
                                 label: const Text(
-                                  'EXPORT URL',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                  'Export Setting',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
                                 ),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.orange.shade700,

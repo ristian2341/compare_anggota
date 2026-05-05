@@ -269,65 +269,8 @@ class _DownloadAnggotaPageState extends State<DownloadAnggotaPage> {
                         ),
                       ),
                     ),
-
                     const SizedBox(height: 16),
-
-                    const Center(
-                      child: Text(
-                        'ATAU',
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    /// BUTTON FILE
-                    Material(
-                      color: Colors.orange,
-                      borderRadius: BorderRadius.circular(14),
-                      elevation: 3,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(14),
-                        splashColor: Colors.white24,
-                        highlightColor: Colors.white10,
-                        onTap: _importFromFile,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-                          child: Row(
-                            children: const [
-                              Icon(Icons.file_upload, color: Colors.white),
-                              SizedBox(width: 16),
-                              Expanded(
-                                child: Text(
-                                  'Import dari File Excel',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                              Icon(Icons.arrow_forward_ios,
-                                  size: 16, color: Colors.white70),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
                   ],
-
-                  const SizedBox(height: 24),
-
-                  /// NOTE
-                  const Text(
-                    '* Format Excel: Kolom A (NIK), B (Barcode), C (Nama)',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
                 ],
               ),
             ),

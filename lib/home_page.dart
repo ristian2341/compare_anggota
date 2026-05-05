@@ -228,6 +228,42 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
             ),
+
+          /// STATISTICS LABEL (Bottom Left)
+          if (!_isLoading && _displayData.isNotEmpty)
+            Positioned(
+              left: 16,
+              bottom: 16,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.teal.shade800.withOpacity(0.9),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    )
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Anggota: ${_filteredData.where((e) => e['status'] == 'YES').length} (${(_filteredData.length > 0 ? (_filteredData.where((e) => e['status'] == 'YES').length / _filteredData.length * 100) : 0).toStringAsFixed(1)}%)',
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Pegawai: ${_filteredData.length} data',
+                      style: const TextStyle(color: Colors.white70, fontSize: 14),
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
       floatingActionButton: (!_isLoading && _filteredData.isNotEmpty)
