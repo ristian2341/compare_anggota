@@ -20,6 +20,7 @@ class _HomePageState extends State<HomePage> {
   String _searchQuery = "";
   String _searchBy = "Semua"; // NIK, Nama, Area, Semua
   String _statusFilter = "Semua"; // Semua, YES, NO
+  bool _isSearchVisible = false; // Default tersembunyi
 
   // Lebar kolom tetap minimum untuk memastikan data tidak berdesakan
   final double minColNik = 70;
@@ -187,7 +188,55 @@ class _HomePageState extends State<HomePage> {
                 const SizedBox(height: 8),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: _buildSearchAndFilterModern(),
+                  child: Column(
+                    children: [
+                      // Tombol Toggle Pencarian
+                      GestureDetector(
+                        onTap: () => setState(() => _isSearchVisible = !_isSearchVisible),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 4,
+                              )
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(Icons.search, color: Colors.teal.shade800),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Pencarian & Filter',
+                                    style: TextStyle(
+                                      color: Colors.teal.shade800,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Icon(
+                                _isSearchVisible ? Icons.expand_less : Icons.expand_more,
+                                color: Colors.teal.shade800,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      
+                      // Area Pencarian (Show/Hide)
+                      if (_isSearchVisible) ...[
+                        const SizedBox(height: 8),
+                        _buildSearchAndFilterModern(),
+                      ],
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 6),
                 Expanded(
