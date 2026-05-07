@@ -1,11 +1,9 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:excel/excel.dart' hide Border;
+import 'package:http/http.dart' as http;
 import 'database_helper.dart';
 import 'login_page.dart';
-import 'home_page.dart'; // This is the comparison page
+import 'home_page.dart';
 import 'download_anggota_page.dart';
 import 'download_karyawan_page.dart';
 
@@ -42,6 +40,130 @@ class _MainPageState extends State<MainPage> {
   int? _selectedMenuIndex;
   final DatabaseHelper _dbHelper = DatabaseHelper();
 
+  @override
+  void initState() {
+    super.initState();
+    // Jalankan pengecekan sinkronisasi data saat aplikasi dibuka
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkDataSync();
+    });
+  }
+
+  Future<void> _checkDataSync() async {
+    try {
+      final settings = await _dbHelper.getSettings();
+      if (settings == null) return;
+
+      final urlAnggota = settings['link_data_anggota'] ?? '';
+      final urlKaryawan = settings['link_data_karyawan'] ?? '';
+
+      if (urlAnggota.isEmpty && urlKaryawan.isEmpty) return;
+
+      bool needsUpdate = false;
+      String updateMessage = "";
+      String page_open = "";
+
+      // 1. Cek Data Anggota
+      if (urlAnggota.isNotEmpty) {
+        int remoteCount = await _getRemoteRowCount(urlAnggota);
+        int localCount = (await _dbHelper.queryAllAnggota()).length;
+        if (remoteCount != -1 && remoteCount != localCount) {
+          needsUpdate = true;
+          page_open = "anggota";
+          updateMessage = "Data Anggota belum sinkron!";
+        }
+      }
+
+      // 2. Cek Data Karyawan (jika anggota sudah sinkron, cek karyawan)
+      if (!needsUpdate && urlKaryawan.isNotEmpty) {
+        int remoteCount = await _getRemoteRowCount(urlKaryawan);
+        int localCount = (await _dbHelper.queryAllKaryawan()).length;
+        if (remoteCount != -1 && remoteCount != localCount) {
+          needsUpdate = true;
+          page_open = "karyawan";
+          updateMessage = "Data Karyawan belum sinkron!";
+        }
+      }
+
+      if (needsUpdate && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            duration: const Duration(seconds: 10),
+            backgroundColor: Colors.orange.shade800,
+            behavior: SnackBarBehavior.floating,
+
+            content: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    updateMessage,
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                ),
+
+                // Tombol UPDATE
+                TextButton(
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+                    if (page_open == 'anggota') {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const DownloadAnggotaPage(),
+                        ),
+                      );
+                    }
+
+                    if (page_open == "karyawan") {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const DownloadKaryawanPage(),
+                        ),
+                      );
+                    }
+                  },
+                  child: const Text(
+                    'UPDATE',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+
+                // Tombol CLOSE
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white),
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint("Sync check skipped: $e");
+    }
+  }
+
+  Future<int> _getRemoteRowCount(String url) async {
+    try {
+      String downloadUrl = url;
+      if (url.contains('/pubhtml')) {
+        downloadUrl = url.replaceFirst('/pubhtml', '/pub?output=csv');
+      } else if (url.contains('/edit')) {
+        downloadUrl = url.split('/edit')[0] + '/export?format=csv';
+      }
+
+      final response = await http.get(Uri.parse(downloadUrl)).timeout(const Duration(seconds: 5));
+      if (response.statusCode == 200) {
+        final lines = response.body.split('\n');
+        return lines.where((line) => line.trim().isNotEmpty).length - 1;
+      }
+    } catch (_) {}
+    return -1;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -65,37 +187,25 @@ class _MainPageState extends State<MainPage> {
                 color: Theme.of(context).colorScheme.primary,
               ),
               child: const Column(
-                mainAxisAlignment: MainAxisAlignment.end, // Menjaga konten tetap di bawah
+                mainAxisAlignment: MainAxisAlignment.end,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Tambahkan Icon di sini
-                  Icon(
-                    Icons.account_circle, // Ganti dengan ikon yang kamu mau
-                    size: 50,
-                    color: Colors.white,
-                  ),
-                  SizedBox(height: 12), // Jarak antara icon dan teks
+                  Icon(Icons.account_circle, size: 50, color: Colors.white),
+                  SizedBox(height: 12),
                   Text(
                     'Menu Utama',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
                   ),
                   SizedBox(height: 8),
                 ],
               ),
             ),
             ListTile(
-              leading: const Icon(Icons.settings_applications),
-              title: const Text('Setting'),
+              leading: const Icon(Icons.settings),
+              title: const Text('Setting Data'),
               onTap: () {
                 Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const LoginPage()),
-                );
+                Navigator.push(context, MaterialPageRoute(builder: (context) => const LoginPage()));
               },
             ),
           ],
@@ -129,104 +239,58 @@ class _MainPageState extends State<MainPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  /// HEADER
                   Column(
                     children: [
                       Container(
                         padding: const EdgeInsets.all(16),
                         child: Image.asset(
                           'assets/images/my_icon.png',
-                          width: screenWidth * 0.20, // 30% dari lebar layar
-                          height: screenWidth * 0.20,
+                          width: screenWidth * 0.20 > 80 ? 80 : screenWidth * 0.20,
                           fit: BoxFit.contain,
                         ),
                       ),
-
                       const Text(
                         'Data Anggota',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.teal,
-                        ),
+                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.teal),
                       ),
                       const Text(
                         'PUK SPAMK FSPMI PT. JAI',
                         textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.black54,
-                        ),
+                        style: TextStyle(fontSize: 14, color: Colors.black54),
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 32),
-
-                  /// MENU BUTTONS
                   _modernMenuButton(
-                    context,
-                    'Pendaftaran Anggota',
-                    Icons.person_add,
-                    Colors.teal,
+                    context, 0, 'Pendaftaran Anggota', Icons.person_add, Colors.teal,
                         () async {
-                      final Uri url = Uri.parse(
-                          'https://docs.google.com/forms/d/e/1FAIpQLSc-KGxy1af-CKOozYGerxkTMaNjWmo8ghDyJWAwSyf5nmfsCg/viewform');
+                      final Uri url = Uri.parse('https://docs.google.com/forms/d/e/1FAIpQLSc-KGxy1af-CKOozYGerxkTMaNjWmo8ghDyJWAwSyf5nmfsCg/viewform');
                       if (!await launchUrl(url)) {
                         if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Tidak dapat membuka link')),
-                          );
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tidak dapat membuka link')));
                         }
                       }
                     },
                   ),
-
                   const SizedBox(height: 16),
-
                   _modernMenuButton(
-                    context,
-                    'Download Anggota',
-                    Icons.download,
-                    Colors.blue,
+                    context, 1, 'Download Anggota', Icons.download, Colors.blue,
                         () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => const DownloadAnggotaPage()),
-                      );
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => const DownloadAnggotaPage()));
                     },
                   ),
-
                   const SizedBox(height: 16),
-
                   _modernMenuButton(
-                    context,
-                    'Download Data Karyawan',
-                    Icons.file_download,
-                    Colors.orange,
+                    context, 2, 'Download Data Karyawan', Icons.file_download, Colors.orange,
                         () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => const DownloadKaryawanPage()),
-                      );
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => const DownloadKaryawanPage()));
                     },
                   ),
-
                   const SizedBox(height: 16),
-
                   _modernMenuButton(
-                    context,
-                    'Data Anggota',
-                    Icons.group,
-                    Colors.purple,
+                    context, 3, 'Data Anggota', Icons.group, Colors.purple,
                         () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => const HomePage()),
-                      );
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => const HomePage()));
                     },
                   ),
                 ],
@@ -246,66 +310,38 @@ class _MainPageState extends State<MainPage> {
     );
   }
 
-  Widget _buildMenuButton(
-      BuildContext context, int index, String label, IconData icon, VoidCallback onPressed) {
-    bool isSelected = _selectedMenuIndex == index;
-
-    return ElevatedButton.icon(
-      onPressed: onPressed,
-      icon: Icon(icon),
-      label: Text(
-        label,
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-      ),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: isSelected ? Colors.teal[800] : Colors.white,
-        foregroundColor: isSelected ? Colors.white : Colors.teal,
-        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: isSelected ? Colors.teal[900]! : Colors.teal, width: 1),
+  Widget _modernMenuButton(
+      BuildContext context,
+      int index,
+      String title,
+      IconData icon,
+      Color color,
+      VoidCallback onTap,
+      ) {
+    return Material(
+      color: color,
+      borderRadius: BorderRadius.circular(14),
+      elevation: 4,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+          child: Row(
+            children: [
+              Icon(icon, color: Colors.white),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+              ),
+              const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.white70),
+            ],
+          ),
         ),
-        elevation: isSelected ? 4 : 2,
       ),
     );
   }
-}
-
-Widget _modernMenuButton(
-    BuildContext context,
-    String title,
-    IconData icon,
-    Color color,
-    VoidCallback onTap,
-    ) {
-  return Material(
-    color: color,
-    borderRadius: BorderRadius.circular(14),
-    elevation: 4,
-    child: InkWell(
-      borderRadius: BorderRadius.circular(14),
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-        child: Row(
-          children: [
-            Icon(icon, color: Colors.white),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                title,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            const Icon(Icons.arrow_forward_ios,
-                size: 16, color: Colors.white70),
-          ],
-        ),
-      ),
-    ),
-  );
 }

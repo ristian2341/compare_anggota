@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'database_helper.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:excel/excel.dart' hide Border;
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -115,22 +117,32 @@ class _SettingsPageState extends State<SettingsPage> {
           "INSERT OR REPLACE INTO setting (id, link_data_anggota, link_data_karyawan) \n"
           "VALUES (1, '$linkAnggota', '$linkKaryawan');";
 
-      String? outputFile = await FilePicker.platform.saveFile(
-        dialogTitle: 'Simpan Backup SQL URL',
-        fileName: 'backup_url_settings.sql',
-        type: FileType.custom,
-        allowedExtensions: ['sql'],
-      );
+      String fileName = 'backup_url_settings.sql';
 
-      if (outputFile != null) {
-        final file = File(outputFile);
-        await file.writeAsString(sqlContent);
+      if (Platform.isWindows) {
+        String? outputFile = await FilePicker.platform.saveFile(
+          dialogTitle: 'Simpan Backup SQL URL',
+          fileName: fileName,
+          type: FileType.custom,
+          allowedExtensions: ['sql'],
+        );
 
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Berhasil export SQL ke: $outputFile')),
-          );
+        if (outputFile != null) {
+          final file = File(outputFile);
+          await file.writeAsString(sqlContent);
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Berhasil export SQL ke: $outputFile')),
+            );
+          }
         }
+      } else {
+        // Mobile: Share file
+        final tempDir = await getTemporaryDirectory();
+        final file = File('${tempDir.path}/$fileName');
+        await file.writeAsString(sqlContent);
+        await Share.shareXFiles([XFile(file.path)], text: 'Backup Setting SQL');
       }
     } catch (e) {
       if (mounted) {
@@ -179,26 +191,35 @@ class _SettingsPageState extends State<SettingsPage> {
         }
       }
 
-      String? outputFile = await FilePicker.platform.saveFile(
-        dialogTitle: 'Simpan Hasil Export $type',
-        fileName: 'export_${type.toLowerCase().replaceAll(' ', '_')}.xlsx',
-        type: FileType.custom,
-        allowedExtensions: ['xlsx'],
-      );
+      String fileName = 'export_${type.toLowerCase().replaceAll(' ', '_')}.xlsx';
+      var fileBytes = excel.save();
+      if (fileBytes == null) throw "Gagal generate Excel bytes";
 
-      if (outputFile != null) {
-        var fileBytes = excel.save();
-        if (fileBytes != null) {
-          File(outputFile)
-            ..createSync(recursive: true)
-            ..writeAsBytesSync(fileBytes);
-          
+      if (Platform.isWindows) {
+        // Pada Windows, saveFile tidak butuh bytes, kita tulis manual setelah dapat path
+        String? outputFile = await FilePicker.platform.saveFile(
+          dialogTitle: 'Simpan Hasil Export $type',
+          fileName: fileName,
+          type: FileType.custom,
+          allowedExtensions: ['xlsx'],
+        );
+
+        if (outputFile != null) {
+          final file = File(outputFile);
+          await file.create(recursive: true);
+          await file.writeAsBytes(fileBytes);
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('Berhasil export ke: $outputFile')),
             );
           }
         }
+      } else {
+        // Mobile: Share file (Cara paling aman untuk Android/iOS)
+        final tempDir = await getTemporaryDirectory();
+        final file = File('${tempDir.path}/$fileName');
+        await file.writeAsBytes(fileBytes);
+        await Share.shareXFiles([XFile(file.path)], text: 'Export $type');
       }
     } catch (e) {
       if (mounted) {

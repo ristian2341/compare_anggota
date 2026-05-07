@@ -281,8 +281,8 @@ class _HomePageState extends State<HomePage> {
           /// STATISTICS LABEL (Bottom Left)
           if (!_isLoading && _displayData.isNotEmpty)
             Positioned(
-              left: 16,
-              bottom: 16,
+              left: 10,
+              bottom: 10,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 decoration: BoxDecoration(
@@ -302,17 +302,17 @@ class _HomePageState extends State<HomePage> {
                   children: [
                     Text(
                       'Anggota: ${_filteredData.where((e) => e['status'] == 'YES').length} (${(_filteredData.length > 0 ? (_filteredData.where((e) => e['status'] == 'YES').length / _filteredData.length * 100) : 0).toStringAsFixed(1)}%)',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                      style: TextStyle(color: Colors.white54,fontSize: 12),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       'Non Anggota: ${_filteredData.where((e) => e['status'] == 'NO').length} (${(_filteredData.length > 0 ? (_filteredData.where((e) => e['status'] == 'NO').length / _filteredData.length * 100) : 0).toStringAsFixed(1)}%)',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                      style: TextStyle(color: Colors.white54,fontSize: 12),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       'Total Pegawai: ${_filteredData.length} data',
-                      style: const TextStyle(color: Colors.white70, fontSize: 14),
+                      style: const TextStyle(color: Colors.white54, fontSize: 12),
                     ),
                   ],
                 ),
