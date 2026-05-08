@@ -10,62 +10,92 @@ import 'login_page.dart';
 import 'home_page.dart';
 import 'download_anggota_page.dart';
 import 'download_karyawan_page.dart';
+import 'dart:ui';
 
 // Nama task background
 const String syncTaskName = "com.rtie.compare_anggota.sync_check";
 
 // Plugin Notifikasi
-final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-    FlutterLocalNotificationsPlugin();
+final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
 
 @pragma('vm:entry-point')
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
+
+    WidgetsFlutterBinding.ensureInitialized();
+    DartPluginRegistrant.ensureInitialized();
+
     try {
-      // 1. Cek Koneksi Internet
-      var connectivityResult = await Connectivity().checkConnectivity();
+
+      // Cek koneksi internet
+      final connectivityResult = await Connectivity().checkConnectivity();
+
       if (connectivityResult == ConnectivityResult.none) {
         return Future.value(true);
       }
 
       final dbHelper = DatabaseHelper();
       final settings = await dbHelper.getSettings();
-      if (settings == null) return Future.value(true);
+
+      if (settings == null) {
+        return Future.value(true);
+      }
 
       final urlAnggota = settings['link_data_anggota'] ?? '';
       final urlKaryawan = settings['link_data_karyawan'] ?? '';
 
-      if (urlAnggota.isEmpty && urlKaryawan.isEmpty) return Future.value(true);
+      if (urlAnggota.isEmpty && urlKaryawan.isEmpty) {
+        return Future.value(true);
+      }
 
       bool needsUpdate = false;
       String message = "";
 
-      // 2. Cek Data Anggota
+      // Cek data anggota
       if (urlAnggota.isNotEmpty) {
+
         int remoteCount = await _fetchRemoteCount(urlAnggota);
-        int localCount = (await dbHelper.queryAllAnggota()).length;
-        if (remoteCount != -1 && remoteCount != localCount) {
+        int localCount =
+            (await dbHelper.queryAllAnggota()).length;
+
+        if (remoteCount != -1 &&
+            remoteCount != localCount) {
+
           needsUpdate = true;
           message = "Data Anggota belum sinkron!";
         }
       }
 
-      // 3. Cek Data Karyawan (jika anggota ok, cek karyawan)
+      // Cek data karyawan
       if (!needsUpdate && urlKaryawan.isNotEmpty) {
+
         int remoteCount = await _fetchRemoteCount(urlKaryawan);
-        int localCount = (await dbHelper.queryAllKaryawan()).length;
-        if (remoteCount != -1 && remoteCount != localCount) {
+
+        int localCount =
+            (await dbHelper.queryAllKaryawan()).length;
+
+        if (remoteCount != -1 &&
+            remoteCount != localCount) {
+
           needsUpdate = true;
           message = "Data Karyawan belum sinkron!";
         }
       }
 
+      // Tampilkan notifikasi
       if (needsUpdate) {
-        await _showSyncNotification("Update Data Tersedia", message);
+
+        await _showSyncNotification(
+          "Update Data Tersedia",
+          message,
+        );
       }
+
     } catch (e) {
+
       debugPrint("Background sync error: $e");
     }
+
     return Future.value(true);
   });
 }
@@ -102,28 +132,44 @@ Future<void> _showSyncNotification(String title, String body) async {
 }
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
 
-  // Inisialisasi Notifikasi
-  const AndroidInitializationSettings initializationSettingsAndroid =
-      AndroidInitializationSettings('@mipmap/ic_launcher');
-  const InitializationSettings initializationSettings =
-      InitializationSettings(android: initializationSettingsAndroid);
-  await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+      WidgetsFlutterBinding.ensureInitialized();
 
-  // Inisialisasi Workmanager
-  await Workmanager().initialize(callbackDispatcher, isInDebugMode: false);
-  
-  // Daftarkan Task Periodik (Setiap 20 menit)
-  // Catatan: Di Android, interval minimum Workmanager adalah 15 menit
-  await Workmanager().registerPeriodicTask(
-    "1",
-    syncTaskName,
-    frequency: const Duration(minutes: 20),
-    constraints: Constraints(
-      networkType: NetworkType.connected, // Hanya jalan jika ada internet
-    ),
-  );
+      // Inisialisasi notifikasi
+      const AndroidInitializationSettings initializationSettingsAndroid =
+          AndroidInitializationSettings('ic_launcher');
+
+      const InitializationSettings initializationSettings =
+          InitializationSettings(
+        android: initializationSettingsAndroid,
+      );
+
+      await flutterLocalNotificationsPlugin.initialize(
+        initializationSettings,
+      );
+
+      // Inisialisasi Workmanager
+      await Workmanager().initialize(
+        callbackDispatcher,
+        isInDebugMode: false,
+      );
+
+      // Register background task
+      await Workmanager().registerPeriodicTask(
+        "sync-task-id",
+        syncTaskName,
+
+        frequency: const Duration(minutes: 15),
+
+        constraints: Constraints(
+          networkType: NetworkType.connected,
+        ),
+
+        existingWorkPolicy: ExistingWorkPolicy.keep,
+
+        backoffPolicy: BackoffPolicy.linear,
+        backoffPolicyDelay: const Duration(minutes: 1),
+      );
 
   runApp(const MyApp());
 }

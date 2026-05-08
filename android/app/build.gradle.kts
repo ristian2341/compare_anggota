@@ -6,8 +6,8 @@ plugins {
 }
 
 android {
-    namespace = "com.rtie.compare_anggota"
-    compileSdk = 36
+    namespace = "com.example.compare_anggota"
+    compileSdk = 34
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -21,7 +21,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.rtie.compare_anggota"
+        applicationId = "com.example.compare_anggota"
 
         minSdk = flutter.minSdkVersion
         targetSdk = 34
