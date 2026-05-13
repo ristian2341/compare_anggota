@@ -72,24 +72,50 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  bool _matchesLike(String value, String query) {
+    if (query.isEmpty) return true;
+    final valLower = value.toLowerCase();
+    final qLower = query.toLowerCase();
+
+    // Jika query adalah '%' saja, tampilkan semua
+    if (qLower == '%') return true;
+
+    // Menangani pencarian SQL LIKE menggunakan Regex
+    // 1. Escape karakter regex spesial (kecuali %)
+    String pattern = qLower.replaceAll(RegExp(r'([.*+?^${}()|[\]\\])'), r'\$1');
+
+    // 2. Ganti % dengan .*
+    pattern = pattern.replaceAll('%', '.*');
+
+    // 3. Tambahkan anchor jika tidak ada % di ujung
+    if (!qLower.startsWith('%')) pattern = '^$pattern';
+    if (!qLower.endsWith('%')) pattern = '$pattern';
+
+    try {
+      return RegExp(pattern).hasMatch(valLower);
+    } catch (e) {
+      // Jika regex gagal, fallback ke contains biasa tanpa %
+      return valLower.contains(qLower.replaceAll('%', ''));
+    }
+  }
+
   List<Map<String, dynamic>> get _filteredData {
     return _displayData.where((item) {
       if (_statusFilter != "Semua") {
         if (item['status'] != _statusFilter) return false;
       }
       if (_searchQuery.isEmpty) return true;
-      final searchLower = _searchQuery.toLowerCase();
-      
+
       if (_searchBy == "NIK") {
-        return item['nik'].toString().toLowerCase().startsWith(searchLower);
+        return _matchesLike(item['nik'].toString(), _searchQuery);
       } else if (_searchBy == "Nama") {
-        return item['nama'].toString().toLowerCase().startsWith(searchLower);
+        return _matchesLike(item['nama'].toString(), _searchQuery);
       } else if (_searchBy == "Area") {
-        return item['area'].toString().toLowerCase().startsWith(searchLower);
+        return _matchesLike(item['area'].toString(), _searchQuery);
       } else {
-        return item['nik'].toString().toLowerCase().startsWith(searchLower) ||
-            item['nama'].toString().toLowerCase().startsWith(searchLower) ||
-            item['area'].toString().toLowerCase().startsWith(searchLower);
+        return _matchesLike(item['nik'].toString(), _searchQuery) ||
+            _matchesLike(item['nama'].toString(), _searchQuery) ||
+            _matchesLike(item['area'].toString(), _searchQuery);
       }
     }).toList();
   }
@@ -336,7 +362,7 @@ class _HomePageState extends State<HomePage> {
       bottomNavigationBar: const Padding(
         padding: EdgeInsets.all(12.0),
         child: Text(
-          'create by Rtie Developer @2026',
+          'create by Rtie Development @2026',
           textAlign: TextAlign.center,
           style: TextStyle(color: Colors.black54, fontSize: 12, fontWeight: FontWeight.bold),
         ),

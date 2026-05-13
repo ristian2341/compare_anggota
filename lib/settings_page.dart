@@ -431,7 +431,7 @@ class _SettingsPageState extends State<SettingsPage> {
         color: Colors.teal.shade400,
         padding: const EdgeInsets.all(12.0),
         child: const Text(
-          'create by Rtie Developer @2026',
+          'create by Rtie Development @2026',
           textAlign: TextAlign.center,
           style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
         ),
