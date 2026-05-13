@@ -6,7 +6,6 @@ import 'login_page.dart';
 import 'home_page.dart';
 import 'download_anggota_page.dart';
 import 'download_karyawan_page.dart';
-import 'dart:async';
 
 void main() {
   runApp(const MyApp());
@@ -40,8 +39,6 @@ class MainPage extends StatefulWidget {
 class _MainPageState extends State<MainPage> {
   final DatabaseHelper _dbHelper = DatabaseHelper();
 
-  Timer? _syncTimer;
-
   @override
   void initState() {
     super.initState();
@@ -49,19 +46,7 @@ class _MainPageState extends State<MainPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkDataSync();
     });
-
-    // 20 menit = 20 * 60 detik
-    _syncTimer = Timer.periodic(const Duration(minutes: 20), (timer) {
-      _checkDataSync();
-    });
   }
-
-  // 3. WAJIB: Hentikan timer saat widget dihancurkan
-    @override
-    void dispose() {
-      _syncTimer?.cancel();
-      super.dispose();
-    }
 
   Future<void> _checkDataSync() async {
     try {
