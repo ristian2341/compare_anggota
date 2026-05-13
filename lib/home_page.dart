@@ -20,6 +20,7 @@ class _HomePageState extends State<HomePage> {
   String _searchQuery = "";
   String _searchBy = "Semua"; // NIK, Nama, Area, Semua
   String _statusFilter = "Semua"; // Semua, YES, NO
+  bool _isSearchVisible = false; // Default tersembunyi
 
   // Lebar kolom tetap minimum untuk memastikan data tidak berdesakan
   final double minColNik = 70;
@@ -71,6 +72,33 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  bool _matchesLike(String value, String query) {
+    if (query.isEmpty) return true;
+    final valLower = value.toLowerCase();
+    final qLower = query.toLowerCase();
+
+    // Jika query adalah '%' saja, tampilkan semua
+    if (qLower == '%') return true;
+
+    // Menangani pencarian SQL LIKE menggunakan Regex
+    // 1. Escape karakter regex spesial (kecuali %)
+    String pattern = qLower.replaceAll(RegExp(r'([.*+?^${}()|[\]\\])'), r'\$1');
+
+    // 2. Ganti % dengan .*
+    pattern = pattern.replaceAll('%', '.*');
+
+    // 3. Tambahkan anchor jika tidak ada % di ujung
+    if (!qLower.startsWith('%')) pattern = '^$pattern';
+    if (!qLower.endsWith('%')) pattern = '$pattern';
+
+    try {
+      return RegExp(pattern).hasMatch(valLower);
+    } catch (e) {
+      // Jika regex gagal, fallback ke contains biasa tanpa %
+      return valLower.contains(qLower.replaceAll('%', ''));
+    }
+  }
+
   List<Map<String, dynamic>> get _filteredData {
     return _displayData.where((item) {
       if (_statusFilter != "Semua") {
@@ -86,23 +114,23 @@ class _HomePageState extends State<HomePage> {
       String nama = item['nama'].toString().toLowerCase();
       String area = item['area'].toString().toLowerCase();
 
-       bool match(String value) {
-         return isContains
-             ? value.contains(keyword)
-             : value.startsWith(keyword);
-       }
+      bool match(String value) {
+        return isContains
+            ? value.contains(keyword)
+            : value.startsWith(keyword);
+      }
 
-       if (_searchBy == "NIK") {
-         return match(nik);
-       } else if (_searchBy == "Nama") {
-         return match(nama);
-       } else if (_searchBy == "Area") {
-         return match(area);
-       } else {
-         return match(nik) ||
-             match(nama) ||
-             match(area);
-       }
+      if (_searchBy == "NIK") {
+        return match(nik);
+      } else if (_searchBy == "Nama") {
+        return match(nama);
+      } else if (_searchBy == "Area") {
+        return match(area);
+      } else {
+        return match(nik) ||
+            match(nama) ||
+            match(area);
+      }
 
     }).toList();
   }
@@ -201,7 +229,55 @@ class _HomePageState extends State<HomePage> {
                 const SizedBox(height: 8),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: _buildSearchAndFilterModern(),
+                  child: Column(
+                    children: [
+                      // Tombol Toggle Pencarian
+                      GestureDetector(
+                        onTap: () => setState(() => _isSearchVisible = !_isSearchVisible),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 4,
+                              )
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(Icons.search, color: Colors.teal.shade800),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Pencarian & Filter',
+                                    style: TextStyle(
+                                      color: Colors.teal.shade800,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Icon(
+                                _isSearchVisible ? Icons.expand_less : Icons.expand_more,
+                                color: Colors.teal.shade800,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      // Area Pencarian (Show/Hide)
+                      if (_isSearchVisible) ...[
+                        const SizedBox(height: 8),
+                        _buildSearchAndFilterModern(),
+                      ],
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 6),
                 Expanded(
@@ -246,8 +322,8 @@ class _HomePageState extends State<HomePage> {
           /// STATISTICS LABEL (Bottom Left)
           if (!_isLoading && _displayData.isNotEmpty)
             Positioned(
-              left: 16,
-              bottom: 16,
+              left: 10,
+              bottom: 10,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 decoration: BoxDecoration(
@@ -267,17 +343,17 @@ class _HomePageState extends State<HomePage> {
                   children: [
                     Text(
                       'Anggota: ${_filteredData.where((e) => e['status'] == 'YES').length} (${(_filteredData.length > 0 ? (_filteredData.where((e) => e['status'] == 'YES').length / _filteredData.length * 100) : 0).toStringAsFixed(1)}%)',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                      style: TextStyle(color: Colors.white54,fontSize: 12),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       'Non Anggota: ${_filteredData.where((e) => e['status'] == 'NO').length} (${(_filteredData.length > 0 ? (_filteredData.where((e) => e['status'] == 'NO').length / _filteredData.length * 100) : 0).toStringAsFixed(1)}%)',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                      style: TextStyle(color: Colors.white54,fontSize: 12),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       'Total Pegawai: ${_filteredData.length} data',
-                      style: const TextStyle(color: Colors.white70, fontSize: 14),
+                      style: const TextStyle(color: Colors.white54, fontSize: 12),
                     ),
                   ],
                 ),
@@ -301,7 +377,7 @@ class _HomePageState extends State<HomePage> {
       bottomNavigationBar: const Padding(
         padding: EdgeInsets.all(12.0),
         child: Text(
-          'create by Rtie Developer @2026',
+          'create by Rtie Development @2026',
           textAlign: TextAlign.center,
           style: TextStyle(color: Colors.black54, fontSize: 12, fontWeight: FontWeight.bold),
         ),
