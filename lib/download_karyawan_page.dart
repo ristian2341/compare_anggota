@@ -119,6 +119,7 @@ class _DownloadKaryawanPageState extends State<DownloadKaryawanPage> {
                   'nik': row[0]?.value.toString() ?? '',
                   'nama_karyawan': row[1]?.value.toString() ?? '',
                   'area_kerja': row[2]?.value.toString() ?? '',
+                  'jen_kel': row[3]?.value.toString() ?? '',
                 });
                 importedCount++;
               }

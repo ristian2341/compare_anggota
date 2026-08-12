@@ -83,7 +83,8 @@ class DatabaseHelper {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         nomor_nik TEXT,
         barcode TEXT,
-        nama_anggota TEXT
+        nama_anggota TEXT,
+        jen_kel TEXT CHECK(jen_kel IN ('L', 'P')) DEFAULT 'L' 
       )
     ''');
 
@@ -93,7 +94,8 @@ class DatabaseHelper {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         nik TEXT,
         nama_karyawan TEXT,
-        area_kerja TEXT
+        area_kerja TEXT,
+        jen_kel TEXT CHECK(jen_kel IN ('L', 'P')) DEFAULT 'L'
       )
     ''');
 

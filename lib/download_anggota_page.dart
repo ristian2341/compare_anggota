@@ -68,6 +68,7 @@ class _DownloadAnggotaPageState extends State<DownloadAnggotaPage> {
               'nomor_nik': columns[1].trim(),
               'barcode': columns[2].trim(),
               'nama_anggota': columns[3].trim(),
+              'jen_kel': columns[4].trim(),
             });
             importedCount++;
           }

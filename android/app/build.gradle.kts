@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.example.compare_anggota"
-    compileSdk = 36
+    compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
