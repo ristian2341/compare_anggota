@@ -6,6 +6,7 @@ import 'login_page.dart';
 import 'home_page.dart';
 import 'download_anggota_page.dart';
 import 'download_karyawan_page.dart';
+import 'package:dropdown_search/dropdown_search.dart';
 
 void main() {
   runApp(const MyApp());
@@ -43,7 +44,14 @@ class _MainPageState extends State<MainPage> {
   int _currentPage = 0;
   int _totalAnggota = 0;
   int _totalKaryawan = 0;
+  int _totalAnggota_l = 0;
+  int _totalAnggota_p = 0;
+  int _totalKaryawan_l = 0;
+  int _totalKaryawan_p = 0;
   bool _isLoadingDashboard = true;
+
+  // 🔹 TAMBAHKAN VARIABEL INI:
+  Map<String, dynamic>? _selectedAreaDetail;
 
   @override
   void initState() {
@@ -66,10 +74,15 @@ class _MainPageState extends State<MainPage> {
     try {
       final anggotaList = await _dbHelper.queryAllAnggota();
       final karyawanList = await _dbHelper.queryAllKaryawan();
+
       if (mounted) {
         setState(() {
           _totalAnggota = anggotaList.length;
           _totalKaryawan = karyawanList.length;
+          _totalAnggota_l = anggotaList.where((a) => a['jen_kel'] == 'L').length;
+          _totalAnggota_p = anggotaList.where((a) => a['jen_kel'] == 'P').length;
+          _totalKaryawan_l = karyawanList.where((k) => k['jen_kel'] == 'L').length;
+          _totalKaryawan_p = karyawanList.where((k) => k['jen_kel'] == 'P').length;
           _isLoadingDashboard = false;
         });
       }
@@ -248,7 +261,7 @@ class _MainPageState extends State<MainPage> {
           children: [
             // Indikator Halaman (Dot Indicator)
             Padding(
-              padding: const EdgeInsets.only(top: 12.0, bottom: 4.0),
+              padding: const EdgeInsets.only(top: 4.0, bottom: 4.0),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -308,9 +321,9 @@ class _MainPageState extends State<MainPage> {
     return Center(
       child: SingleChildScrollView(
         child: Container(
-          constraints: const BoxConstraints(maxWidth: 420),
-          margin: const EdgeInsets.all(16),
-          padding: const EdgeInsets.all(24),
+          constraints: const BoxConstraints(maxWidth: 500),
+          margin: const EdgeInsets.all(5),
+          padding: const EdgeInsets.all(16), // Ditingkatkan sedikit agar layout lebih rapi
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(20),
@@ -325,6 +338,7 @@ class _MainPageState extends State<MainPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // --- HEADER DASHBOARD ---
               Column(
                 children: [
                   Container(
@@ -347,6 +361,8 @@ class _MainPageState extends State<MainPage> {
                 ],
               ),
               const SizedBox(height: 24),
+
+              // --- KARTU STATISTIK ---
               _isLoadingDashboard
                   ? const Center(child: CircularProgressIndicator())
                   : Column(
@@ -359,6 +375,8 @@ class _MainPageState extends State<MainPage> {
                           '$_totalAnggota',
                           Icons.group,
                           Colors.teal,
+                          '$_totalAnggota_l',
+                          '$_totalAnggota_p',
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -368,33 +386,213 @@ class _MainPageState extends State<MainPage> {
                           '$_totalKaryawan',
                           Icons.badge,
                           Colors.orange,
+                          '$_totalKaryawan_l',
+                          '$_totalKaryawan_p',
                         ),
                       ),
                     ],
                   ),
+
+                  const SizedBox(height: 20),
+                  // --- DROPDOWN EXPANSION: AREA KERJA ---
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // --- DROPDOWN SELECT2 MODEL SEARCH (TANPA FutureBuilder) ---
+                      DropdownSearch<Map<String, dynamic>>(
+                        // 🔹 Ambil data asinkron langsung dari database
+                        items: (filter, loadProps) async {
+                          final areaDataList = await _dbHelper.queryGroupedByArea();
+                          if (filter.isEmpty) return areaDataList;
+                          return areaDataList.where((area) {
+                            String name = (area['area_kerja'] ?? '').toString().toLowerCase();
+                            return name.contains(filter.toLowerCase());
+                          }).toList();
+                        },
+
+                        itemAsString: (item) => (item['area_kerja'] ?? 'TANPA AREA')
+                            .toString()
+                            .replaceAll('"', '')
+                            .trim(),
+
+                        compareFn: (item1, item2) =>
+                        item1['area_kerja'] == item2['area_kerja'],
+
+                        // 🔹 Mode BottomSheet (Aman untuk HP Android & iOS)
+                        popupProps: PopupProps.bottomSheet(
+                          showSearchBox: true,
+                          bottomSheetProps: const BottomSheetProps(
+                            elevation: 16,
+                            backgroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                            ),
+                          ),
+                          searchFieldProps: TextFieldProps(
+                            decoration: InputDecoration(
+                              hintText: "Ketik nama area kerja...",
+                              prefixIcon: const Icon(Icons.search, color: Colors.teal),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                          ),
+                          itemBuilder: (context, item, isDisabled, isSelected) {
+                            String areaName = (item['area_kerja'] ?? 'TANPA AREA')
+                                .toString()
+                                .replaceAll('"', '')
+                                .trim();
+                            int total = item['total_karyawan'] ?? 0;
+                            int totalL = item['total_l'] ?? 0;
+                            int totalP = item['total_p'] ?? 0;
+
+                            return Material(
+                              color: Colors.transparent,
+                              child: ListTile(
+                                dense: true,
+                                title: Text(
+                                  areaName,
+                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                                ),
+                                subtitle: Text(
+                                  'Laki-laki : $totalL | Perempuan : $totalP',
+                                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                                ),
+                                trailing: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.teal.shade50,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: Colors.teal.shade200),
+                                  ),
+                                  child: Text(
+                                    '$total Orang',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.teal,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+
+                        decoratorProps: DropDownDecoratorProps(
+                          decoration: InputDecoration(
+                            hintText: "Cari atau pilih Area Kerja...",
+                            hintStyle: const TextStyle(fontSize: 13, color: Colors.black45),
+                            prefixIcon: const Icon(Icons.location_city, color: Colors.teal),
+                            filled: true,
+                            fillColor: Colors.grey.shade50,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide(color: Colors.grey.shade300),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide(color: Colors.grey.shade300),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: const BorderSide(color: Colors.teal, width: 2),
+                            ),
+                          ),
+                        ),
+
+                        onChanged: (selectedArea) {
+                          setState(() {
+                            _selectedAreaDetail = selectedArea;
+                          });
+                        },
+                      ),
+
+                      // --- CARD DETAIL HASIL PILIHAN ---
+                      if (_selectedAreaDetail != null) ...[
+                        const SizedBox(height: 16),
+                        const Text(
+                          "Total Anggota Per Area Kerja",
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.black87,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        _dashboardCard(
+                          (_selectedAreaDetail!['area_kerja'] ?? 'AREA KERJA')
+                              .toString()
+                              .replaceAll('"', '')
+                              .trim(),
+                          '${_selectedAreaDetail!['total_karyawan'] ?? 0}',
+                          Icons.location_city,
+                          Colors.teal,
+                          '${_selectedAreaDetail!['total_l'] ?? 0}',
+                          '${_selectedAreaDetail!['total_p'] ?? 0}',
+                        ),
+                      ],
+                    ],
+                  )
                 ],
               ),
+
+
               const SizedBox(height: 28),
-              InkWell(
-                onTap: () {
-                  _pageController.animateToPage(
-                    1,
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeInOut,
-                  );
-                },
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'Geser ke Menu Utama',
-                      style: TextStyle(color: Colors.teal, fontWeight: FontWeight.bold, fontSize: 13),
+
+              // --- TOMBOL GESER KE MENU UTAMA ---
+              Container(
+                margin: const EdgeInsets.only(top: 8),
+                child: Center(
+                  child: Material(
+                    color: Colors.teal.shade50,
+                    borderRadius: BorderRadius.circular(25),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(25),
+                      onTap: () {
+                        _pageController.animateToPage(
+                          1,
+                          duration: const Duration(milliseconds: 400),
+                          curve: Curves.easeInOutCubic,
+                        );
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text(
+                              'Geser ke Menu Utama',
+                              style: TextStyle(
+                                color: Colors.teal,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                letterSpacing: 0.3,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: const BoxDecoration(
+                                color: Colors.teal,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.arrow_forward_ios,
+                                size: 12,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                    SizedBox(width: 6),
-                    Icon(Icons.arrow_forward_ios, size: 14, color: Colors.teal),
-                  ],
+                  ),
                 ),
-              ),
+              )
             ],
           ),
         ),
@@ -403,7 +601,14 @@ class _MainPageState extends State<MainPage> {
   }
 
   // Helper Widget Kartu Dashboard
-  Widget _dashboardCard(String title, String count, IconData icon, Color color) {
+  Widget _dashboardCard(
+      String title,
+      String count,
+      IconData icon,
+      Color color, [
+        String? countL,
+        String? countP,
+      ]) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -414,17 +619,71 @@ class _MainPageState extends State<MainPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: color, size: 28),
-          const SizedBox(height: 10),
-          Text(
-            count,
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: color),
-          ),
-          const SizedBox(height: 2),
+          // Judul Kartu
           Text(
             title,
-            style: const TextStyle(fontSize: 12, color: Colors.black87, fontWeight: FontWeight.w500),
+            style: const TextStyle(
+              fontSize: 13,
+              color: Colors.black87,
+              fontWeight: FontWeight.bold,
+            ),
           ),
+          const SizedBox(height: 6),
+          // Baris Atas: Icon & Total Anggota
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Icon(icon, color: color, size: 28),
+              Text(
+                count,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          // Rincian Laki-Laki & Perempuan (Hanya tampil jika parameter diisi)
+          if (countL != null && countP != null) ...[
+            const SizedBox(height: 8),
+            Divider(height: 1, thickness: 0.8, color: color.withOpacity(0.3)),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Laki-Laki :',
+                  style: TextStyle(fontSize: 11, color: Colors.grey[700]),
+                ),
+                Text(
+                  countL,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 3),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Perempuan :',
+                  style: TextStyle(fontSize: 11, color: Colors.grey[700]),
+                ),
+                Text(
+                  countP,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -515,6 +774,56 @@ class _MainPageState extends State<MainPage> {
                   );
                 },
               ),
+              const SizedBox(height: 28),
+              // --- GANTI INKWELL LAMA DENGAN INI ---
+              Container(
+                margin: const EdgeInsets.only(top: 8),
+                child: Material(
+                  color: Colors.teal.shade50,
+                  borderRadius: BorderRadius.circular(25),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(25),
+                    onTap: () {
+                      _pageController.animateToPage(
+                        0,
+                        duration: const Duration(milliseconds: 400),
+                        curve: Curves.easeInOutCubic,
+                      );
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: const BoxDecoration(
+                              color: Colors.teal,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.arrow_back_ios_new,
+                              size: 12,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          const Text(
+                            'Geser ke Dashboard',
+                            style: TextStyle(
+                              color: Colors.teal,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              )
             ],
           ),
         ),
@@ -522,6 +831,7 @@ class _MainPageState extends State<MainPage> {
     );
   }
 
+// 3. Widget Tampilan Dropdown & Card Detail
   Widget _modernMenuButton(
       BuildContext context,
       String title,

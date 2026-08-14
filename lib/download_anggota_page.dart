@@ -61,14 +61,23 @@ class _DownloadAnggotaPageState extends State<DownloadAnggotaPage> {
 
         int importedCount = 0;
         // Skip header if exists
+
         for (int i = 1; i < lines.length; i++) {
           final columns = lines[i].split(',');
-          if (columns.length >= 3) {
+
+          if (columns.length >= 5) {
             await _dbHelper.insertAnggota({
-              'nomor_nik': columns[1].trim(),
-              'barcode': columns[2].trim(),
-              'nama_anggota': columns[3].trim(),
-              'jen_kel': columns[4].trim(),
+              'nomor_nik': columns[1].trim() ?? '',
+              'barcode': columns[2].trim() ?? '',
+              'nama_anggota': columns[3].trim() ?? '',
+              'jen_kel': columns[4].trim() ?? '',
+            });
+            importedCount++;
+          } else if(columns.length >=4 ){
+            await _dbHelper.insertAnggota({
+              'nomor_nik': columns[1].trim() ?? '',
+              'barcode': columns[2].trim() ?? '',
+              'nama_anggota': columns[3].trim() ?? ''
             });
             importedCount++;
           }
@@ -116,11 +125,12 @@ class _DownloadAnggotaPageState extends State<DownloadAnggotaPage> {
             
             for (int i = 1; i < sheet.maxRows; i++) {
               var row = sheet.row(i);
-              if (row.length >= 3) {
+              if (row.length >= 5) {
                 await _dbHelper.insertAnggota({
-                  'nomor_nik': row[0]?.value.toString() ?? '',
-                  'barcode': row[1]?.value.toString() ?? '',
-                  'nama_anggota': row[2]?.value.toString() ?? '',
+                  'nomor_nik': row[1]?.value.toString() ?? '',
+                  'barcode': row[2]?.value.toString() ?? '',
+                  'nama_anggota': row[3]?.value.toString() ?? '',
+                  'jen_kel': row[4]?.value.toString() ?? 'L',
                 });
                 importedCount++;
               }

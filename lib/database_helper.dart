@@ -215,4 +215,20 @@ class DatabaseHelper {
     }
     return null;
   }
+
+  // Mengambil jumlah total karyawan per area_kerja
+  Future<List<Map<String, dynamic>>> queryGroupedByArea() async {
+    Database db = await database;
+    return await db.rawQuery('''
+     SELECT 
+      area_kerja, 
+      COUNT(*) as total_karyawan,
+      SUM(CASE WHEN UPPER(dk.jen_kel) = 'L' THEN 1 ELSE 0 END) as total_l,
+      SUM(CASE WHEN UPPER(dk.jen_kel) = 'P' THEN 1 ELSE 0 END) as total_p
+    FROM data_karyawan dk
+    inner join data_anggota da  on(dk.nik = da.nomor_nik)
+    GROUP BY area_kerja
+    ORDER BY total_karyawan DESC
+    ''');
+  }
 }
