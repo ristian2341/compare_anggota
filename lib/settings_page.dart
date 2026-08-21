@@ -298,7 +298,7 @@ class _SettingsPageState extends State<SettingsPage> {
         );
       }
     } finally {
-      setState(() => _isLoading = false);
+      set() => _isLoading = false;
     }
   }
 
@@ -310,6 +310,14 @@ class _SettingsPageState extends State<SettingsPage> {
         backgroundColor: Colors.teal,
         foregroundColor: Colors.white,
         elevation: 0,
+        leading: IconButton(
+            onPressed: () {
+              if (Navigator.canPop(context)) {
+                Navigator.pop(context);
+              }
+            },
+            icon: const Icon(Icons.arrow_back),
+        ),
       ),
       body: Container(
         width: double.infinity,

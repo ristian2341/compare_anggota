@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get_storage/get_storage.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
 import 'database_helper.dart';
@@ -7,8 +8,10 @@ import 'home_page.dart';
 import 'download_anggota_page.dart';
 import 'download_karyawan_page.dart';
 import 'package:dropdown_search/dropdown_search.dart';
+import 'settings_page.dart';
 
-void main() {
+Future<void> main() async {
+  await GetStorage.init();
   runApp(const MyApp());
 }
 
@@ -40,6 +43,9 @@ class MainPage extends StatefulWidget {
 class _MainPageState extends State<MainPage> {
   final DatabaseHelper _dbHelper = DatabaseHelper();
   final PageController _pageController = PageController(initialPage: 0);
+
+  String user_name = '';
+  String password = '';
 
   int _currentPage = 0;
   int _totalAnggota = 0;
@@ -202,6 +208,9 @@ class _MainPageState extends State<MainPage> {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
+    final box = GetStorage();
+
+    bool isLoggedIn = box.read('isLoggin') ?? false;
 
     return Scaffold(
       backgroundColor: Colors.grey[100],
@@ -213,42 +222,140 @@ class _MainPageState extends State<MainPage> {
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
       ),
-      drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            DrawerHeader(
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary,
+        drawer: Drawer(
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              DrawerHeader(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                child: const Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.account_circle, size: 50, color: Colors.white),
+                    SizedBox(height: 12),
+                    Text(
+                      'Menu Utama',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              child: const Column(
-                mainAxisAlignment: MainAxisAlignment.end,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(Icons.account_circle, size: 50, color: Colors.white),
-                  SizedBox(height: 12),
-                  Text(
-                    'Menu Utama',
-                    style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+
+              // Jika pengguna BELUM login (!isLoggedIn)
+              if (!isLoggedIn) ...[
+                ListTile(
+                  leading: const Icon(Icons.login),
+                  title: const Text('Login'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const LoginPage()),
+                    ).then((_) => _loadDashboardData());
+                  },
+                ),
+              ],
+
+              // Jika pengguna SUDAH login (isLoggedIn)
+              if (isLoggedIn) ...[
+                ListTile(
+                  leading: const Icon(Icons.settings),
+                  title: const Text('Setting Data'),
+                  onTap: () async {
+                    // 1. Tutup drawer terlebih dahulu
+                    Navigator.pop(context);
+
+                    // 2. Buka halaman baru secara aman
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const SettingsPage()),
+                    );
+
+                    // 3. Muat ulang data setelah kembali dari SettingsPage
+                    _loadDashboardData();
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.supervised_user_circle_rounded),
+                  title: const Text('Input Data Jen Kel'),
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Form Input data Jen Kel belum tersedia'),
+                        backgroundColor: Colors.redAccent,
+                      ),
+                    );
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.logout, color: Colors.red),
+                  title: const Text(
+                    'Logout',
+                    style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
                   ),
-                  SizedBox(height: 8),
-                ],
-              ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.settings),
-              title: const Text('Setting Data'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const LoginPage()),
-                ).then((_) => _loadDashboardData());
-              },
-            ),
-          ],
+                  onTap: () {
+                    // 1. Tutup Drawer
+                    Navigator.pop(context);
+
+                    // 2. Tampilkan Konfirmasi Logout
+                    showDialog(
+                      context: context,
+                      builder: (BuildContext dialogContext) {
+                        return AlertDialog(
+                          title: const Text('Konfirmasi Logout'),
+                          content: const Text('Apakah Anda yakin ingin keluar?'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(dialogContext),
+                              child: const Text('Batal'),
+                            ),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red,
+                                foregroundColor: Colors.white,
+                              ),
+                              onPressed: () async {
+                                // 3. Hapus data dari GetStorage
+                                final box = GetStorage();
+                                await box.erase();
+
+                                if (mounted) {
+                                  // Tutup dialog konfirmasi
+                                  Navigator.pop(dialogContext);
+
+                                  // 4. Update state di MainPage secara langsung
+                                  setState(() {
+                                    isLoggedIn = false;
+                                  });
+
+                                  // 5. Muat ulang data dashboard/tampilan jika diperlukan
+                                  _loadDashboardData();
+
+                                  // Tampilkan notifikasi singkat
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Berhasil Logout')),
+                                  );
+                                }
+                              },
+                              child: const Text('Logout'),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                  },
+                ),
+              ],
+            ],
+          ),
         ),
-      ),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -294,7 +401,7 @@ class _MainPageState extends State<MainPage> {
       bottomNavigationBar: const Padding(
         padding: EdgeInsets.all(12.0),
         child: Text(
-          'create by Rtie Development @2026',
+          'create by Rtie Development @2026 (Version 2)',
           textAlign: TextAlign.center,
           style: TextStyle(color: Colors.black54, fontSize: 12, fontWeight: FontWeight.bold),
         ),

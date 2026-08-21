@@ -44,82 +44,96 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 2, // Menaikkan versi dari 1 ke 2
+      version: 4, // 1. Naikkan versi ke 3
       onCreate: _onCreate,
       onUpgrade: (db, oldVersion, newVersion) async {
-        if (oldVersion < 2) {
-          // Jika user punya versi 1, tambahkan tabel setting yang belum ada
-          await db.execute('''
-            CREATE TABLE IF NOT EXISTS setting (
-              id INTEGER PRIMARY KEY CHECK (id = 1),
-              link_data_anggota TEXT,
-              link_data_karyawan TEXT
-            )
-          ''');
-          
-          await db.insert('setting', {
-            'id': 1,
-            'link_data_anggota': 'https://docs.google.com/spreadsheets/d/1IC7IBXQEjRX9a-HAIChOJPijwKa_nwJ25gzZWJm163o/edit?usp=drivesdk',
-            'link_data_karyawan': 'https://docs.google.com/spreadsheets/d/1AKaZQgwJKf7Nz6AxwyEtxZJy0zJWvUkXIZ--mR8VW80/edit?usp=drivesdk',
-          }, conflictAlgorithm: ConflictAlgorithm.ignore);
-        }
-      },
+        print("Mendeteksi upgrade dari versi $oldVersion ke $newVersion");
+        await _onCreate(db, newVersion);
+      }
     );
   }
 
   Future<void> _onCreate(Database db, int version) async {
-    // Table User
-    await db.execute('''
-      CREATE TABLE user (
+    print("Menjalankan _onCreate...");
+      // Table User
+      await db.execute('''
+      CREATE TABLE IF NOT EXISTS user (
         id_user INTEGER PRIMARY KEY AUTOINCREMENT,
         nama_user TEXT,
         password TEXT
       )
     ''');
 
-    // Table Data Anggota
-    await db.execute('''
-      CREATE TABLE data_anggota (
+      // Table Data Anggota
+      await db.execute('''
+      CREATE TABLE IF NOT EXISTS data_anggota (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         nomor_nik TEXT,
         barcode TEXT,
-        nama_anggota TEXT,
-        jen_kel TEXT CHECK(jen_kel IN ('L', 'P')) DEFAULT 'L' 
+        nama_anggota TEXT
       )
     ''');
 
-    // Table Data Karyawan
-    await db.execute('''
-      CREATE TABLE data_karyawan (
+      // Table Data Karyawan
+      await db.execute('''
+      CREATE TABLE IF NOT EXISTS data_karyawan (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         nik TEXT,
         nama_karyawan TEXT,
         area_kerja TEXT,
-        jen_kel TEXT CHECK(jen_kel IN ('L', 'P')) DEFAULT 'L'
+        status TEXT,
+        tgl_kontrak TEXT
       )
     ''');
 
-    // Table Setting
-    await db.execute('''
-      CREATE TABLE setting (
+      // Table Setting
+      await db.execute('''
+      CREATE TABLE IF NOT EXISTS setting (
         id INTEGER PRIMARY KEY CHECK (id = 1),
         link_data_anggota TEXT,
         link_data_karyawan TEXT
       )
     ''');
 
-    // Insert default users for testing
-    await db.insert('user', {
-      'nama_user': 'admin',
-      'password': 'P@ssw0rd',
-    });
+      // Table Status
+      await db.execute('''
+      CREATE TABLE IF NOT EXISTS status (
+        code TEXT PRIMARY KEY,
+        status TEXT
+      ) 
+    ''');
 
-    // Insert default setting row
-    await db.insert('setting', {
-      'id': 1,
-      'link_data_anggota': 'https://docs.google.com/spreadsheets/d/1IC7IBXQEjRX9a-HAIChOJPijwKa_nwJ25gzZWJm163o/edit?usp=drivesdk',
-      'link_data_karyawan': 'https://docs.google.com/spreadsheets/d/1AKaZQgwJKf7Nz6AxwyEtxZJy0zJWvUkXIZ--mR8VW80/edit?usp=drivesdk',
-    });
+      // Table Input Jenis Kelamin
+      await db.execute('''
+      CREATE TABLE IF NOT EXISTS data_jen_kel (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        bulan TEXT,
+        tahun TEXT,
+        jumlah_laki INTEGER,
+        jumlah_perempuan INTEGER
+      )
+    ''');
+
+      // Insert default user (Abaikan jika data sudah ada)
+      await db.insert(
+        'user',
+        {
+          'nama_user': 'admin',
+          'password': 'P@ssw0rd',
+        },
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+
+      // Insert default setting row (Abaikan jika ID 1 sudah ada)
+      await db.insert(
+        'setting',
+        {
+          'id': 1,
+          'link_data_anggota': 'https://docs.google.com/spreadsheets/d/1IC7IBXQEjRX9a-HAIChOJPijwKa_nwJ25gzZWJm163o/edit?usp=drivesdk',
+          'link_data_karyawan': 'https://docs.google.com/spreadsheets/d/1AKaZQgwJKf7Nz6AxwyEtxZJy0zJWvUkXIZ--mR8VW80/edit?usp=drivesdk',
+        },
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
   }
 
   // --- SETTING METHODS ---
@@ -231,4 +245,11 @@ class DatabaseHelper {
     ORDER BY total_karyawan DESC
     ''');
   }
+
+  /// ambil data Input jumlah jenis kelamin ///
+  Future<List<Map<String, dynamic>>> getDataJenKel() async {
+    Database db = await database;
+    return await db.query('data_jen_kel');
+  }
+
 }
