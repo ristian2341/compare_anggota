@@ -7,6 +7,7 @@ import 'login_page.dart';
 import 'home_page.dart';
 import 'download_anggota_page.dart';
 import 'download_karyawan_page.dart';
+import 'jenis_kel_page.dart';
 import 'package:dropdown_search/dropdown_search.dart';
 import 'settings_page.dart';
 
@@ -52,8 +53,7 @@ class _MainPageState extends State<MainPage> {
   int _totalKaryawan = 0;
   int _totalAnggota_l = 0;
   int _totalAnggota_p = 0;
-  int _totalKaryawan_l = 0;
-  int _totalKaryawan_p = 0;
+  int _totalAnggota_kontrak = 0;
   bool _isLoadingDashboard = true;
 
   // 🔹 TAMBAHKAN VARIABEL INI:
@@ -80,15 +80,21 @@ class _MainPageState extends State<MainPage> {
     try {
       final anggotaList = await _dbHelper.queryAllAnggota();
       final karyawanList = await _dbHelper.queryAllKaryawan();
+      final dataJenKel = await _dbHelper.queryLatestDataJenKel();
+      final dataCompare = await _dbHelper.queryCompareAnggota();
+
+      dataCompare.forEach((row){
+          if(row['status'] == '02'){
+            _totalAnggota_kontrak++;
+          }
+      });
 
       if (mounted) {
         setState(() {
           _totalAnggota = anggotaList.length;
           _totalKaryawan = karyawanList.length;
-          _totalAnggota_l = anggotaList.where((a) => a['jen_kel'] == 'L').length;
-          _totalAnggota_p = anggotaList.where((a) => a['jen_kel'] == 'P').length;
-          _totalKaryawan_l = karyawanList.where((k) => k['jen_kel'] == 'L').length;
-          _totalKaryawan_p = karyawanList.where((k) => k['jen_kel'] == 'P').length;
+          _totalAnggota_l = int.tryParse(dataJenKel?['jumlah_laki']?.toString() ?? '0') ?? 0;
+          _totalAnggota_p = int.tryParse(dataJenKel?['jumlah_perempuan']?.toString() ?? '0') ?? 0;
           _isLoadingDashboard = false;
         });
       }
@@ -286,12 +292,11 @@ class _MainPageState extends State<MainPage> {
                   leading: const Icon(Icons.supervised_user_circle_rounded),
                   title: const Text('Input Data Jen Kel'),
                   onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Form Input data Jen Kel belum tersedia'),
-                        backgroundColor: Colors.redAccent,
-                      ),
-                    );
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const JenisKelPage()),
+                    ).then((_) => _loadDashboardData());
                   },
                 ),
                 ListTile(
@@ -474,40 +479,209 @@ class _MainPageState extends State<MainPage> {
                   ? const Center(child: CircularProgressIndicator())
                   : Column(
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _dashboardCard(
-                          'Data Anggota',
-                          '$_totalAnggota',
-                          Icons.group,
-                          Colors.teal,
-                          '$_totalAnggota_l',
-                          '$_totalAnggota_p',
+                  // --- 1 CARD GABUNGAN (DATA KARYAWAN & DATA ANGGOTA) ---
+                  Builder(
+                    builder: (context) {
+                      // Hitung persentase Anggota terhadap Karyawan (mencegah error division by zero)
+                      final double persentase = _totalKaryawan > 0
+                          ? (_totalAnggota / _totalKaryawan) * 100
+                          : 0.0;
+
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        decoration: BoxDecoration(
+                          color: Colors.teal.withOpacity(0.06),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.teal.withOpacity(0.3)),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _dashboardCard(
-                          'Data Karyawan',
-                          '$_totalKaryawan',
-                          Icons.badge,
-                          Colors.orange,
-                          '$_totalKaryawan_l',
-                          '$_totalKaryawan_p',
+                        child: Column(
+                          children: [
+                            // --- SEKSI ATAS: DATA KARYAWAN ---
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Row(
+                                  children: [
+                                    Icon(Icons.badge, color: Colors.orange, size: 26),
+                                    SizedBox(width: 10),
+                                    Text(
+                                      'Data Karyawan',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.black87,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Text(
+                                  '$_totalKaryawan',
+                                  style: const TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.orange,
+                                  ),
+                                ),
+                              ],
+                            ),
+
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 10),
+                              child: Divider(height: 1, thickness: 1),
+                            ),
+
+                            // --- SEKSI BAWAH: DATA ANGGOTA + PERSENTASE ---
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(Icons.group, color: Colors.teal, size: 26),
+                                    const SizedBox(width: 10),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'Data Anggota',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.black87,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                                Text(
+                                  '$_totalAnggota (${persentase.toStringAsFixed(1)}%)',
+                                  style: const TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.teal,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 20),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                if(_totalAnggota_l > 0)
+                                Row(
+                                  children: [
+                                    const Icon(Icons.man_2_rounded, color: Colors.teal, size: 26),
+                                    const SizedBox(width: 10),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Jumlah Laki-Laki',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.teal.shade700,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                                if(_totalAnggota_l > 0)
+                                Text(
+                                  '$_totalAnggota_l',
+                                  style: const TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.teal,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                if(_totalAnggota_p > 0)
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.woman_2_rounded, color: Colors.teal, size: 26),
+                                      const SizedBox(width: 10),
+                                      Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'Jumlah Perempuan',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                              color: Colors.teal.shade700,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                if(_totalAnggota_p > 0)
+                                  Text(
+                                    '$_totalAnggota_p',
+                                    style: const TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.teal,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                  if(_totalAnggota_kontrak > 0)
+                                  Row(
+                                    children: [
+                                        const Icon(Icons.woman_2_rounded,
+                                            color: Colors.teal, size: 26),
+                                        const SizedBox(width: 10),
+                                        Column(
+                                          crossAxisAlignment: CrossAxisAlignment
+                                              .start,
+                                          children: [
+                                            Text(
+                                              'Jumlah Anggota Kontrak',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w600,
+                                                color: Colors.teal.shade700,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                    ],
+                                  ),
+                                if(_totalAnggota_kontrak > 0)
+                                  Text(
+                                    '$_totalAnggota_kontrak',
+                                    style: const TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.teal,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
+                      );
+                    },
                   ),
 
                   const SizedBox(height: 20),
+
                   // --- DROPDOWN EXPANSION: AREA KERJA ---
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // --- DROPDOWN SELECT2 MODEL SEARCH (TANPA FutureBuilder) ---
+                      // --- DROPDOWN SELECT2 MODEL SEARCH ---
                       DropdownSearch<Map<String, dynamic>>(
-                        // 🔹 Ambil data asinkron langsung dari database
                         items: (filter, loadProps) async {
                           final areaDataList = await _dbHelper.queryGroupedByArea();
                           if (filter.isEmpty) return areaDataList;
@@ -525,14 +699,13 @@ class _MainPageState extends State<MainPage> {
                         compareFn: (item1, item2) =>
                         item1['area_kerja'] == item2['area_kerja'],
 
-                        // 🔹 Mode BottomSheet (Aman untuk HP Android & iOS)
-                        popupProps: PopupProps.bottomSheet(
+                        popupProps: PopupProps.dialog(
                           showSearchBox: true,
-                          bottomSheetProps: const BottomSheetProps(
+                          dialogProps: const DialogProps(
                             elevation: 16,
                             backgroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                              borderRadius: BorderRadius.all(Radius.circular(20)),
                             ),
                           ),
                           searchFieldProps: TextFieldProps(
@@ -551,8 +724,6 @@ class _MainPageState extends State<MainPage> {
                                 .replaceAll('"', '')
                                 .trim();
                             int total = item['total_karyawan'] ?? 0;
-                            int totalL = item['total_l'] ?? 0;
-                            int totalP = item['total_p'] ?? 0;
 
                             return Material(
                               color: Colors.transparent,
@@ -561,10 +732,6 @@ class _MainPageState extends State<MainPage> {
                                 title: Text(
                                   areaName,
                                   style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
-                                ),
-                                subtitle: Text(
-                                  'Laki-laki : $totalL | Perempuan : $totalP',
-                                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                                 ),
                                 trailing: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -637,15 +804,14 @@ class _MainPageState extends State<MainPage> {
                           '${_selectedAreaDetail!['total_karyawan'] ?? 0}',
                           Icons.location_city,
                           Colors.teal,
-                          '${_selectedAreaDetail!['total_l'] ?? 0}',
-                          '${_selectedAreaDetail!['total_p'] ?? 0}',
+                          '${_selectedAreaDetail!['total_status_01'] ?? 0}',
+                          '${_selectedAreaDetail!['total_status_02'] ?? 0}',
                         ),
                       ],
                     ],
                   )
                 ],
               ),
-
 
               const SizedBox(height: 28),
 
@@ -761,7 +927,7 @@ class _MainPageState extends State<MainPage> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Laki-Laki :',
+                  'Status Tetap :',
                   style: TextStyle(fontSize: 11, color: Colors.grey[700]),
                 ),
                 Text(
@@ -778,7 +944,7 @@ class _MainPageState extends State<MainPage> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Perempuan :',
+                  'Status Kontrak :',
                   style: TextStyle(fontSize: 11, color: Colors.grey[700]),
                 ),
                 Text(

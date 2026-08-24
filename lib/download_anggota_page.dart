@@ -70,7 +70,6 @@ class _DownloadAnggotaPageState extends State<DownloadAnggotaPage> {
               'nomor_nik': columns[1].trim() ?? '',
               'barcode': columns[2].trim() ?? '',
               'nama_anggota': columns[3].trim() ?? '',
-              'jen_kel': columns[4].trim() ?? '',
             });
             importedCount++;
           } else if(columns.length >=4 ){
@@ -129,8 +128,7 @@ class _DownloadAnggotaPageState extends State<DownloadAnggotaPage> {
                 await _dbHelper.insertAnggota({
                   'nomor_nik': row[1]?.value.toString() ?? '',
                   'barcode': row[2]?.value.toString() ?? '',
-                  'nama_anggota': row[3]?.value.toString() ?? '',
-                  'jen_kel': row[4]?.value.toString() ?? 'L',
+                  'nama_anggota': row[3]?.value.toString() ?? ''
                 });
                 importedCount++;
               }

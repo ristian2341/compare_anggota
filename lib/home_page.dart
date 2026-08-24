@@ -49,15 +49,25 @@ class _HomePageState extends State<HomePage> {
           .toSet();
 
       final List<Map<String, dynamic>> combined = [];
+      String status_pegawai = '';
       for (var i = 0; i < karyawan.length; i++) {
         final k = karyawan[i];
         final nik = k['nik']?.toString() ?? '';
         final isAnggota = nikAnggotaSet.contains(nik);
+        if(k['status'] == '01'){
+          status_pegawai = 'Tetap';
+        }else if(k['status'] == '02'){
+          status_pegawai = 'Kontrak';
+        }else{
+          status_pegawai = 'Magang';
+        }
 
         combined.add({
           'nik': nik,
           'nama': k['nama_karyawan'] ?? '',
           'area': k['area_kerja'] ?? '',
+          'status_pegawai': status_pegawai,
+          'tgl_berhenti': k['tgl_berhenti'] ?? '',
           'status': isAnggota ? 'YES' : 'NO',
         });
       }
@@ -146,6 +156,8 @@ class _HomePageState extends State<HomePage> {
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4.portrait,
           margin: const pw.EdgeInsets.all(20),
+          // Gunakan maxPages untuk mencegah infinite loop jika ada error layout
+          maxPages: 100,
           build: (pw.Context context) {
             return [
               pw.Header(
@@ -153,17 +165,42 @@ class _HomePageState extends State<HomePage> {
                 child: pw.Text(
                   "Data Pegawai & Status Anggota",
                   style: pw.TextStyle(
-                      fontSize: 18, fontWeight: pw.FontWeight.bold),
+                    fontSize: 14,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
                 ),
               ),
+              pw.SizedBox(height: 10),
               pw.TableHelper.fromTextArray(
-                headers: ['NIK', 'Nama', 'Area Kerja', 'Status'],
-                data: data.map((item) => [
-                  item['nik'].toString(),
-                  item['nama'].toString(),
-                  item['area'].toString(),
-                  item['status'].toString(),
-                ]).toList(),
+                headers: ['NIK', 'Nama', 'Area Kerja', 'Status','Akhir Kontrak', 'Anggota'],
+                data: data.map((item) {
+                  return [
+                    item['nik']?.toString() ?? '-',
+                    item['nama']?.toString() ?? '-',
+                    // Potong teks jika terlalu panjang agar tidak merusak baris tabel
+                    _cleanText(item['area']?.toString()),
+                    item['status_pegawai']?.toString() ?? '-',
+                    item['tgl_berhenti']?.toString() ?? '-',
+                    item['status']?.toString() ?? '-',
+                  ];
+                }).toList(),
+                // Mengatur lebar kolom agar konsisten
+                columnWidths: {
+                  0: const pw.FlexColumnWidth(1.0),
+                  1: const pw.FlexColumnWidth(3.5),
+                  2: const pw.FlexColumnWidth(3.5),
+                  3: const pw.FlexColumnWidth(1.0),
+                  4: const pw.FlexColumnWidth(1.2),
+                  5: const pw.FlexColumnWidth(1.2),
+                },
+                headerStyle: pw.TextStyle(
+                  fontWeight: pw.FontWeight.bold,
+                  fontSize: 10,
+                ),
+                cellStyle: const pw.TextStyle(
+                  fontSize: 9, // Ukuran font dibuat lebih kecil agar muat
+                ),
+                cellAlignment: pw.Alignment.centerLeft,
               ),
             ];
           },
@@ -172,23 +209,23 @@ class _HomePageState extends State<HomePage> {
 
       await Printing.layoutPdf(
         onLayout: (PdfPageFormat format) async => pdf.save(),
-        name: 'Data_Pegawai_Status.pdf',
       );
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Export PDF berhasil')),
-        );
-      }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal export: $e')),
-        );
-      }
+      debugPrint('Error export PDF: $e');
     } finally {
-      setState(() => _isExporting = false);
+      if (mounted) {
+        setState(() => _isExporting = false);
+      }
     }
+  }
+
+// Fungsi pembantu untuk membatasi panjang teks jika terlalu ekstrem
+  String _cleanText(String? text) {
+    if (text == null || text.isEmpty) return '-';
+    if (text.length > 100) {
+      return '${text.substring(0, 97)}...';
+    }
+    return text;
   }
 
   @override
@@ -418,6 +455,8 @@ class _HomePageState extends State<HomePage> {
                           _buildHeaderCell('NIK', width: minColNik),
                           _buildHeaderCell('Nama',width: minColNama, isExpanded: true),
                           _buildHeaderCell('Area Kerja',width:  minColArea, isExpanded: true),
+                          _buildHeaderCell('Status',width:  minColArea, isExpanded: true),
+                          _buildHeaderCell('Akhir Kontrak',width:  minColArea, isExpanded: true),
                           _buildHeaderCell('Anggota', width: minColStatus, isCenter: true),
                         ],
                       ),
@@ -430,12 +469,15 @@ class _HomePageState extends State<HomePage> {
                         itemBuilder: (context, index) {
                           final item = _filteredData[index];
                           final isAnggota = item['status'] == 'YES';
+
                           return Container(
                             child: Row(
                               children: [
                                 _buildCell(item['nik'].toString(), width: minColNik),
                                 _buildCell(item['nama'].toString(), isExpanded: true),
                                 _buildCell(item['area'].toString(), isExpanded: true),
+                                _buildCell(item['status_pegawai'].toString(), isExpanded: true),
+                                _buildCell(item['tgl_berhenti'].toString() ?? '', isExpanded: true),
                                 _buildStatusBadge(isAnggota, item['status']),
                               ],
                             ),
@@ -495,9 +537,13 @@ class _HomePageState extends State<HomePage> {
                         children: [
                           const Icon(Icons.location_on, size: 16, color: Colors.grey),
                           const SizedBox(width: 4),
-                          Text(
-                            item['area'],
-                            style: const TextStyle(fontSize: 14, color: Colors.black87),
+                          Expanded(
+                            child: Text(
+                              item['area'],
+                              style: const TextStyle(fontSize: 14, color: Colors.black87),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 2,
+                            ),
                           ),
                         ],
                       ),
@@ -515,6 +561,41 @@ class _HomePageState extends State<HomePage> {
                           fontWeight: FontWeight.bold,
                           color: isAnggota ? Colors.green.shade800 : Colors.red.shade800,
                         ),
+                      ),
+                    ),
+                  ],
+                ),
+                const Divider(),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Row(
+                        children: [
+                          const Icon(Icons.location_on, size: 12, color: Colors.grey),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Stat Pegawai : '+ item['status_pegawai'],
+                            style: const TextStyle(fontSize: 12, color: Colors.black87),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          if (item['status_pegawai'].toString().toLowerCase() == 'kontrak') ...[
+                            const Icon(Icons.calendar_today, size: 12, color: Colors.grey),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                'Tgl Berhenti : ${item['tgl_berhenti'] ?? '-'}',
+                                style: const TextStyle(fontSize: 12, color: Colors.black87),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                   ],

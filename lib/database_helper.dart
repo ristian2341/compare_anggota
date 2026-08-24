@@ -183,7 +183,12 @@ class DatabaseHelper {
   // --- DATA ANGGOTA METHODS ---
   Future<int> insertAnggota(Map<String, dynamic> row) async {
     Database db = await database;
-    return await db.insert('data_anggota', row);
+
+    return await db.insert(
+      'data_anggota',
+      row,
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   Future<List<Map<String, dynamic>>> queryAllAnggota() async {
@@ -201,7 +206,12 @@ class DatabaseHelper {
   // --- DATA KARYAWAN METHODS ---
   Future<int> insertKaryawan(Map<String, dynamic> row) async {
     Database db = await database;
-    return await db.insert('data_karyawan', row);
+    return await db.insert(
+        'data_karyawan',
+        row,
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+
   }
 
   Future<List<Map<String, dynamic>>> queryAllKaryawan() async {
@@ -235,21 +245,69 @@ class DatabaseHelper {
     Database db = await database;
     return await db.rawQuery('''
      SELECT 
-      area_kerja, 
-      COUNT(*) as total_karyawan,
-      SUM(CASE WHEN UPPER(dk.jen_kel) = 'L' THEN 1 ELSE 0 END) as total_l,
-      SUM(CASE WHEN UPPER(dk.jen_kel) = 'P' THEN 1 ELSE 0 END) as total_p
-    FROM data_karyawan dk
-    inner join data_anggota da  on(dk.nik = da.nomor_nik)
-    GROUP BY area_kerja
-    ORDER BY total_karyawan DESC
+            area_kerja,
+            COUNT(CASE WHEN dk.status = '01' THEN 1 END) AS total_status_01,
+            COUNT(CASE WHEN dk.status = '02' THEN 1 END) AS total_status_02,
+            COUNT(*) AS total_karyawan
+        FROM data_karyawan dk
+        INNER JOIN data_anggota da ON (dk.nik = da.nomor_nik)
+        WHERE dk.status IN ('01', '02')
+        GROUP BY area_kerja
+        ORDER BY total_karyawan DESC;
     ''');
   }
 
   /// ambil data Input jumlah jenis kelamin ///
-  Future<List<Map<String, dynamic>>> getDataJenKel() async {
+  Future<List<Map<String, dynamic>>> getDataJenKel({String? query}) async {
+    Database db = await database;
+    if (query != null && query.isNotEmpty) {
+      return await db.query(
+        'data_jen_kel',
+        where: 'bulan LIKE ? OR tahun LIKE ?',
+        whereArgs: ['%$query%', '%$query%'],
+      );
+    }
+    return await db.query('data_jen_kel');
+  }
+
+  Future<int> insertJenKel(Map<String, dynamic> row) async {
+    Database db = await database;
+    return await db.insert('data_jen_kel', row);
+  }
+
+  Future<int> updateJenKel(Map<String, dynamic> row) async {
+    Database db = await database;
+    int id = row['id'];
+    return await db.update('data_jen_kel', row, where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<int> deleteJenKel(int id) async {
+    Database db = await database;
+    return await db.delete('data_jen_kel', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<List<Map<String, dynamic>>> queryAllDataJenKel() async {
     Database db = await database;
     return await db.query('data_jen_kel');
   }
 
+  Future<Map<String, dynamic>?> queryLatestDataJenKel() async {
+    Database db = await database;
+    List<Map<String, dynamic>> result = await db.query(
+      'data_jen_kel', // Sesuaikan dengan nama tabel Anda
+      orderBy: 'id DESC',
+      limit: 1,
+    );
+
+    if (result.isNotEmpty) {
+      return result.first;
+    }
+    return null;
+  }
+  
+  Future<List<Map<String, dynamic>>> queryCompareAnggota() async {
+    Database db = await database;
+    String sql = ''' select dk.nik,da.nama_anggota,dk.status,dk.tgl_berhenti from data_karyawan dk inner join data_anggota da on(dk.nik = da.nomor_nik) order by dk.nik ''';
+    return await db.rawQuery(sql);
+  }
 }

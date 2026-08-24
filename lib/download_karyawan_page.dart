@@ -44,11 +44,11 @@ class _DownloadKaryawanPageState extends State<DownloadKaryawanPage> {
       String downloadUrl = url;
       if (url.contains('docs.google.com/spreadsheets')) {
         if (url.contains('/pubhtml')) {
-          downloadUrl = url.replaceFirst('/pubhtml', '/pub?output=csv');
+          downloadUrl = url.replaceFirst('/pubhtml', '/pub?output=tsv');
         } else if (url.contains('/edit')) {
-          downloadUrl = url.replaceFirst('/edit#gid=', '/export?format=csv&gid=');
-          if (!downloadUrl.contains('/export?format=csv')) {
-            downloadUrl = url.split('/edit')[0] + '/export?format=csv';
+          downloadUrl = url.replaceFirst('/edit#gid=', '/export?format=tsv&gid=');
+          if (!downloadUrl.contains('/export?format=tsv')) {
+            downloadUrl = url.split('/edit')[0] + '/export?format=tsv';
           }
         }
       }
@@ -61,23 +61,17 @@ class _DownloadKaryawanPageState extends State<DownloadKaryawanPage> {
         int importedCount = 0;
         // Skip header
         for (int i = 1; i < lines.length; i++) {
-          final columns = lines[i].split(',');
-          if (columns.length >= 5) {
-            await _dbHelper.insertKaryawan({
-              'nik': columns[1].trim(),
-              'nama_karyawan': columns[3].trim(),
-              'area_kerja': columns[4].trim(),
-              'jen_kel':columns[5].trim() ?? 'L' ,
-            });
-            importedCount++;
-          }else if(columns.length >= 4){
-            await _dbHelper.insertKaryawan({
-              'nik': columns[1].trim(),
-              'nama_karyawan': columns[3].trim(),
-              'area_kerja': columns[4].trim(),
-            });
-            importedCount++;
-          }
+          final columns = lines[i].split('\t');
+          if(columns.length >= 6){
+              await _dbHelper.insertKaryawan({
+                'nik': columns[1].trim(),
+                'nama_karyawan': columns[3].trim(),
+                'area_kerja': columns[4].trim(),
+                'status' : columns[5].trim(),
+                'tgl_berhenti' : columns[6].trim()
+              });
+              importedCount++;
+            }
         }
         await _countCurrentData();
         if (mounted) {
@@ -122,12 +116,13 @@ class _DownloadKaryawanPageState extends State<DownloadKaryawanPage> {
             
             for (int i = 1; i < sheet.maxRows; i++) {
               var row = sheet.row(i);
-              if (row.length >= 3) {
+              if (row.length >= 5) {
                 await _dbHelper.insertKaryawan({
                   'nik': row[0]?.value.toString() ?? '',
                   'nama_karyawan': row[1]?.value.toString() ?? '',
                   'area_kerja': row[2]?.value.toString() ?? '',
-                  'jen_kel': row[3]?.value.toString() ?? '',
+                  'status' : row[3]?.value.toString() ?? '',
+                  'tgl_berhenti' : row[4]?.value.toString() ?? '',
                 });
                 importedCount++;
               }
