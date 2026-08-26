@@ -44,12 +44,16 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 4, // 1. Naikkan versi ke 3
+      version: 2, // 1. Naikkan versi ke 3
       onCreate: _onCreate,
       onUpgrade: (db, oldVersion, newVersion) async {
         print("Mendeteksi upgrade dari versi $oldVersion ke $newVersion");
         await _onCreate(db, newVersion);
-      }
+      },
+      onOpen: (db) async {
+        // Jalankan pengecekan kolom setiap kali database dibuka
+        await _checkAndAddColumns(db);
+      },
     );
   }
 
@@ -309,5 +313,23 @@ class DatabaseHelper {
     Database db = await database;
     String sql = ''' select dk.nik,da.nama_anggota,dk.status,dk.tgl_berhenti from data_karyawan dk inner join data_anggota da on(dk.nik = da.nomor_nik) order by dk.nik ''';
     return await db.rawQuery(sql);
+  }
+
+  Future<void> _checkAndAddColumns(Database db) async {
+    // 1. Ambil semua informasi kolom dari tabel 'data_karyawan'
+    List<Map<String, dynamic>> columns = await db.rawQuery("PRAGMA table_info(data_karyawan)");
+
+    // 2. Ekstrak nama-nama kolom ke dalam List String
+    List<String> existingColumns = columns.map((c) => c['name'].toString()).toList();
+
+    // 3. Cek dan tambah kolom 'status' jika belum ada
+    if (!existingColumns.contains('status')) {
+      await db.execute("ALTER TABLE data_karyawan ADD COLUMN status TEXT;");
+    }
+
+    // 4. Cek dan tambah kolom 'tgl_berhenti' (atau 'tgl_kontrak') jika belum ada
+    if (!existingColumns.contains('tgl_berhenti')) {
+      await db.execute("ALTER TABLE data_karyawan ADD COLUMN tgl_berhenti TEXT;");
+    }
   }
 }

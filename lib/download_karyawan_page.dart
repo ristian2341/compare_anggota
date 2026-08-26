@@ -62,16 +62,14 @@ class _DownloadKaryawanPageState extends State<DownloadKaryawanPage> {
         // Skip header
         for (int i = 1; i < lines.length; i++) {
           final columns = lines[i].split('\t');
-          if(columns.length >= 6){
-              await _dbHelper.insertKaryawan({
-                'nik': columns[1].trim(),
-                'nama_karyawan': columns[3].trim(),
-                'area_kerja': columns[4].trim(),
-                'status' : columns[5].trim(),
-                'tgl_berhenti' : columns[6].trim()
-              });
-              importedCount++;
-            }
+          await _dbHelper.insertKaryawan({
+            'nik': columns.length > 1 ? columns[1].trim() : '',
+            'nama_karyawan': columns.length > 3 ? columns[3].trim() : '',
+            'area_kerja': columns.length > 4 ? columns[4].trim() : '',
+            'status': columns.length > 5 ? columns[5].trim() : '',
+            'tgl_berhenti': columns.length > 6 ? columns[6].trim() : '',
+          });
+          importedCount++;
         }
         await _countCurrentData();
         if (mounted) {

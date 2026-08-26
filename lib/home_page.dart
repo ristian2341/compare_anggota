@@ -58,8 +58,10 @@ class _HomePageState extends State<HomePage> {
           status_pegawai = 'Tetap';
         }else if(k['status'] == '02'){
           status_pegawai = 'Kontrak';
-        }else{
+        }else if(k['status'] == '03'){
           status_pegawai = 'Magang';
+        }else{
+          status_pegawai = '-';
         }
 
         combined.add({
