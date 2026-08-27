@@ -15,19 +15,33 @@ class DownloadAnggotaPage extends StatefulWidget {
 class _DownloadAnggotaPageState extends State<DownloadAnggotaPage> {
   final DatabaseHelper _dbHelper = DatabaseHelper();
   bool _isProcessing = false;
-  String? _statusPath;
   int _totalData = 0;
+
+  List<Map<String, dynamic>> _listAnggota = [];
+  Set<String> _existingNikKaryawan = {};
 
   @override
   void initState() {
     super.initState();
-    _countCurrentData();
+    _loadDataAndCompare();
   }
 
-  Future<void> _countCurrentData() async {
-    final data = await _dbHelper.queryAllAnggota();
+  /// Memuat data anggota sekaligus mengambil daftar NIK karyawan untuk komparasi
+  Future<void> _loadDataAndCompare() async {
+    final anggotaData = await _dbHelper.queryAllAnggota();
+
+    // Ambil data karyawan dari database helper
+    final karyawanData = await _dbHelper.queryAllKaryawan();
+
+    final Set<String> nikSet = karyawanData
+        .map((k) => k['nik']?.toString().trim() ?? '')
+        .where((nik) => nik.isNotEmpty)
+        .toSet();
+
     setState(() {
-      _totalData = data.length;
+      _listAnggota = anggotaData;
+      _totalData = anggotaData.length;
+      _existingNikKaryawan = nikSet;
     });
   }
 
@@ -41,7 +55,6 @@ class _DownloadAnggotaPageState extends State<DownloadAnggotaPage> {
         throw 'Link URL belum diatur di menu Setting (Sign In)';
       }
 
-      // Convert Google Sheets Link to CSV Export link if needed
       String downloadUrl = url;
       if (url.contains('docs.google.com/spreadsheets')) {
         if (url.contains('/pubhtml')) {
@@ -60,28 +73,20 @@ class _DownloadAnggotaPageState extends State<DownloadAnggotaPage> {
         await _dbHelper.deleteAllAnggota();
 
         int importedCount = 0;
-        // Skip header if exists
 
         for (int i = 1; i < lines.length; i++) {
           final columns = lines[i].split(',');
 
-          if (columns.length >= 5) {
+          if (columns.length >= 4) {
             await _dbHelper.insertAnggota({
-              'nomor_nik': columns[1].trim() ?? '',
-              'barcode': columns[2].trim() ?? '',
-              'nama_anggota': columns[3].trim() ?? '',
-            });
-            importedCount++;
-          } else if(columns.length >=4 ){
-            await _dbHelper.insertAnggota({
-              'nomor_nik': columns[1].trim() ?? '',
-              'barcode': columns[2].trim() ?? '',
-              'nama_anggota': columns[3].trim() ?? ''
+              'nomor_nik': columns[1].trim(),
+              'barcode': columns[2].trim(),
+              'nama_anggota': columns[3].trim(),
             });
             importedCount++;
           }
         }
-        await _countCurrentData();
+        await _loadDataAndCompare();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Berhasil mengimpor $importedCount data dari URL')),
@@ -114,28 +119,28 @@ class _DownloadAnggotaPageState extends State<DownloadAnggotaPage> {
         if (await file.exists()) {
           var bytes = file.readAsBytesSync();
           var excel = Excel.decodeBytes(bytes);
-          
+
           await _dbHelper.deleteAllAnggota();
           int importedCount = 0;
 
           for (var table in excel.tables.keys) {
             var sheet = excel.tables[table];
             if (sheet == null) continue;
-            
+
             for (int i = 1; i < sheet.maxRows; i++) {
               var row = sheet.row(i);
-              if (row.length >= 5) {
+              if (row.length >= 4) {
                 await _dbHelper.insertAnggota({
-                  'nomor_nik': row[1]?.value.toString() ?? '',
-                  'barcode': row[2]?.value.toString() ?? '',
-                  'nama_anggota': row[3]?.value.toString() ?? ''
+                  'nomor_nik': row[1]?.value.toString().trim() ?? '',
+                  'barcode': row[2]?.value.toString().trim() ?? '',
+                  'nama_anggota': row[3]?.value.toString().trim() ?? ''
                 });
                 importedCount++;
               }
             }
           }
 
-          await _countCurrentData();
+          await _loadDataAndCompare();
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('Berhasil mengimpor $importedCount data dari file')),
@@ -173,7 +178,7 @@ class _DownloadAnggotaPageState extends State<DownloadAnggotaPage> {
         child: Center(
           child: SingleChildScrollView(
             child: Container(
-              constraints: const BoxConstraints(maxWidth: 420),
+              constraints: const BoxConstraints(maxWidth: 600),
               margin: const EdgeInsets.all(16),
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
@@ -209,7 +214,7 @@ class _DownloadAnggotaPageState extends State<DownloadAnggotaPage> {
 
                   const SizedBox(height: 24),
 
-                  /// TOTAL DATA
+                  /// TOTAL DATA CARD
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -255,10 +260,10 @@ class _DownloadAnggotaPageState extends State<DownloadAnggotaPage> {
                         splashColor: Colors.white24,
                         highlightColor: Colors.white10,
                         onTap: _importFromUrl,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                        child: const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                           child: Row(
-                            children: const [
+                            children: [
                               Icon(Icons.cloud_download, color: Colors.white),
                               SizedBox(width: 16),
                               Expanded(
@@ -278,8 +283,123 @@ class _DownloadAnggotaPageState extends State<DownloadAnggotaPage> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
+
+                    /// BUTTON EXCEL FILE
+                    OutlinedButton.icon(
+                      onPressed: _importFromFile,
+                      icon: const Icon(Icons.file_upload_outlined, color: Colors.teal),
+                      label: const Text('Import dari File Excel (.xlsx)',
+                          style: TextStyle(color: Colors.teal, fontWeight: FontWeight.bold)),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        side: const BorderSide(color: Colors.teal),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                    ),
                   ],
+
+                  const SizedBox(height: 24),
+                  const Divider(),
+                  const SizedBox(height: 12),
+
+                  /// HEADER KOMPARASI
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Hasil Komparasi NIK',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      Row(
+                        children: [
+                          Container(width: 12, height: 12, color: Colors.red.shade100),
+                          const SizedBox(width: 4),
+                          const Text('Tidak Ada di Karyawan', style: TextStyle(fontSize: 11)),
+                        ],
+                      )
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  /// TABEL KOMPARASI DATA ANGGOTA
+                  _listAnggota.isEmpty
+                      ? const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Center(
+                      child: Text(
+                        'Belum ada data anggota',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    ),
+                  )
+                      : ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxHeight: 300,
+                    ),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: _listAnggota.length,
+                        separatorBuilder: (context, index) => const Divider(height: 1),
+                        itemBuilder: (context, index) {
+                          final item = _listAnggota[index];
+                          final String nik = item['nomor_nik']?.toString().trim() ?? '';
+                          final String nama = item['nama_anggota']?.toString() ?? '';
+                          final String barcode = item['barcode']?.toString() ?? '';
+
+                          // Pengecekan: NIK kosong ATAU tidak ditemukan di database karyawan
+                          final bool isMissingInKaryawan = nik.isEmpty || !_existingNikKaryawan.contains(nik);
+
+                          return Container(
+                            color: isMissingInKaryawan ? Colors.red.shade100 : Colors.transparent,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  flex: 2,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        nik.isEmpty ? '(NIK KOSONG)' : nik,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: isMissingInKaryawan ? Colors.red.shade900 : Colors.black87,
+                                        ),
+                                      ),
+                                      Text(
+                                        'Barcode: $barcode',
+                                        style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Expanded(
+                                  flex: 3,
+                                  child: Text(
+                                    nama,
+                                    style: TextStyle(
+                                      color: isMissingInKaryawan ? Colors.red.shade900 : Colors.black87,
+                                    ),
+                                  ),
+                                ),
+                                if (isMissingInKaryawan)
+                                  const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 20)
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+
                 ],
               ),
             ),
@@ -297,4 +417,3 @@ class _DownloadAnggotaPageState extends State<DownloadAnggotaPage> {
     );
   }
 }
-

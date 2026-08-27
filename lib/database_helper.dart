@@ -255,7 +255,6 @@ class DatabaseHelper {
             COUNT(*) AS total_karyawan
         FROM data_karyawan dk
         INNER JOIN data_anggota da ON (dk.nik = da.nomor_nik)
-        WHERE dk.status IN ('01', '02')
         GROUP BY area_kerja
         ORDER BY total_karyawan DESC;
     ''');
@@ -331,5 +330,16 @@ class DatabaseHelper {
     if (!existingColumns.contains('tgl_berhenti')) {
       await db.execute("ALTER TABLE data_karyawan ADD COLUMN tgl_berhenti TEXT;");
     }
+
+    // 5. cek tabel 'data_jen_kel Table Input Jenis Kelamin
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS data_jen_kel (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        bulan TEXT,
+        tahun TEXT,
+        jumlah_laki INTEGER,
+        jumlah_perempuan INTEGER
+      )
+    ''');
   }
 }
