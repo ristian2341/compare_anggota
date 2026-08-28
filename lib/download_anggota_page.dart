@@ -16,6 +16,7 @@ class _DownloadAnggotaPageState extends State<DownloadAnggotaPage> {
   final DatabaseHelper _dbHelper = DatabaseHelper();
   bool _isProcessing = false;
   int _totalData = 0;
+  bool _showOnlyMissing = false; // State untuk checkbox filter
 
   List<Map<String, dynamic>> _listAnggota = [];
   Set<String> _existingNikKaryawan = {};
@@ -231,7 +232,7 @@ class _DownloadAnggotaPageState extends State<DownloadAnggotaPage> {
                         Text(
                           '$_totalData',
                           style: const TextStyle(
-                            fontSize: 28,
+                            fontSize: 20,
                             fontWeight: FontWeight.bold,
                             color: Colors.teal,
                           ),
@@ -240,7 +241,7 @@ class _DownloadAnggotaPageState extends State<DownloadAnggotaPage> {
                     ),
                   ),
 
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 6),
 
                   /// LOADING ATAU BUTTON
                   if (_isProcessing)
@@ -300,106 +301,6 @@ class _DownloadAnggotaPageState extends State<DownloadAnggotaPage> {
                       ),
                     ),
                   ],
-
-                  const SizedBox(height: 24),
-                  const Divider(),
-                  const SizedBox(height: 12),
-
-                  /// HEADER KOMPARASI
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Hasil Komparasi NIK',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                      Row(
-                        children: [
-                          Container(width: 12, height: 12, color: Colors.red.shade100),
-                          const SizedBox(width: 4),
-                          const Text('Tidak Ada di Karyawan', style: TextStyle(fontSize: 11)),
-                        ],
-                      )
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-
-                  /// TABEL KOMPARASI DATA ANGGOTA
-                  _listAnggota.isEmpty
-                      ? const Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: Center(
-                      child: Text(
-                        'Belum ada data anggota',
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                    ),
-                  )
-                      : ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      maxHeight: 300,
-                    ),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade300),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: ListView.separated(
-                        shrinkWrap: true,
-                        itemCount: _listAnggota.length,
-                        separatorBuilder: (context, index) => const Divider(height: 1),
-                        itemBuilder: (context, index) {
-                          final item = _listAnggota[index];
-                          final String nik = item['nomor_nik']?.toString().trim() ?? '';
-                          final String nama = item['nama_anggota']?.toString() ?? '';
-                          final String barcode = item['barcode']?.toString() ?? '';
-
-                          // Pengecekan: NIK kosong ATAU tidak ditemukan di database karyawan
-                          final bool isMissingInKaryawan = nik.isEmpty || !_existingNikKaryawan.contains(nik);
-
-                          return Container(
-                            color: isMissingInKaryawan ? Colors.red.shade100 : Colors.transparent,
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  flex: 2,
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        nik.isEmpty ? '(NIK KOSONG)' : nik,
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: isMissingInKaryawan ? Colors.red.shade900 : Colors.black87,
-                                        ),
-                                      ),
-                                      Text(
-                                        'Barcode: $barcode',
-                                        style: const TextStyle(fontSize: 11, color: Colors.grey),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Expanded(
-                                  flex: 3,
-                                  child: Text(
-                                    nama,
-                                    style: TextStyle(
-                                      color: isMissingInKaryawan ? Colors.red.shade900 : Colors.black87,
-                                    ),
-                                  ),
-                                ),
-                                if (isMissingInKaryawan)
-                                  const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 20)
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-
                 ],
               ),
             ),

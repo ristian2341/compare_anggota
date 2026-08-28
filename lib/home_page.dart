@@ -253,7 +253,6 @@ class _HomePageState extends State<HomePage> {
       ),
       body: Stack(
         children: [
-
           /// BODY UTAMA
           Container(
             decoration: const BoxDecoration(

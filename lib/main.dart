@@ -8,6 +8,8 @@ import 'home_page.dart';
 import 'download_anggota_page.dart';
 import 'download_karyawan_page.dart';
 import 'jenis_kel_page.dart';
+import 'data_anggota_page.dart';
+import 'data_karyawan_page.dart';
 import 'package:dropdown_search/dropdown_search.dart';
 import 'settings_page.dart';
 
@@ -190,7 +192,7 @@ class _MainPageState extends State<MainPage> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const DownloadKaryawanPage(),
+                          builder: (context) => const DownloadAnggotaPage(),
                         ),
                       ).then((_) => _loadDashboardData());
                     }
@@ -323,6 +325,30 @@ class _MainPageState extends State<MainPage> {
                   ).then((_) => _loadDashboardData());
                 },
               ),
+            ],
+            ListTile(
+              leading: const Icon(Icons.group),
+              title: const Text('Data Anggota'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const DataAnggotaPage()),
+                ).then((_) => _loadDashboardData());
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.group),
+              title: const Text('Data Karyawan'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const DataKaryawanPage()),
+                ).then((_) => _loadDashboardData());
+              },
+            ),
+            if (isLoggedIn) ...[
               ListTile(
                 leading: const Icon(Icons.logout, color: Colors.red),
                 title: const Text(
@@ -446,7 +472,7 @@ class _MainPageState extends State<MainPage> {
         child: Center(
           child: Container(
             constraints: const BoxConstraints(maxWidth: 500),
-            margin: const EdgeInsets.all(5),
+            margin: const EdgeInsets.all(16),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.white,
