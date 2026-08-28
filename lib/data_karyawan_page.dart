@@ -59,8 +59,8 @@ class _DataKaryawanPageState extends State<DataKaryawanPage> {
     }
 
     final results = _allKaryawan.where((item) {
-      final nik = (item['nik'] ?? item['nomor_nik'] ?? '').toString().toLowerCase();
-      final nama = (item['nama_karyawan'] ?? item['nama'] ?? '').toString().toLowerCase();
+      final nik = (item['nik'] ?? '').toString().toLowerCase();
+      final nama = (item['nama_karyawan'] ?? '').toString().toLowerCase();
       final areaKerja = (item['area_kerja'] ?? '').toString().toLowerCase();
 
       return nik.contains(cleanQuery) ||
