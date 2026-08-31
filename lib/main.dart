@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
+import 'package:curved_navigation_bar/curved_navigation_bar.dart';
 import 'database_helper.dart';
 import 'login_page.dart';
 import 'home_page.dart';
@@ -45,12 +46,13 @@ class MainPage extends StatefulWidget {
 
 class _MainPageState extends State<MainPage> {
   final DatabaseHelper _dbHelper = DatabaseHelper();
-  final PageController _pageController = PageController(initialPage: 0);
+  final GlobalKey<CurvedNavigationBarState> _bottomNavigationKey = GlobalKey();
+  final TextEditingController _searchAreaController = TextEditingController();
 
   String user_name = '';
   String password = '';
 
-  int _currentPage = 0;
+  int _currentIndex = 0;
   int _totalAnggota = 0;
   int _totalKaryawan = 0;
   int _totalAnggota_l = 0;
@@ -71,11 +73,11 @@ class _MainPageState extends State<MainPage> {
 
   @override
   void dispose() {
-    _pageController.dispose();
+    _searchAreaController.dispose();
     super.dispose();
   }
 
-  // 🔹 FUNGSI UNTUK REFRESH DATA (Pull-to-Refresh & Manual Action)
+  // 🔹 FUNGSI UNTUK REFRESH DATA
   Future<void> _refreshData() async {
     await Future.wait([
       _loadDashboardData(),
@@ -94,7 +96,6 @@ class _MainPageState extends State<MainPage> {
       int tempKontrak = 0;
       if (dataCompare != null && dataCompare.isNotEmpty) {
         for (var row in dataCompare) {
-          // Gunakan toString() aman untuk mengantisipasi jika tipe data di SQLite berupa int/String
           if (row['status']?.toString() == '02') {
             tempKontrak++;
           }
@@ -117,7 +118,6 @@ class _MainPageState extends State<MainPage> {
         setState(() {
           _isLoadingDashboard = false;
         });
-        // Tampilkan pesan error dengan benar ke layar
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error get data : $e'),
@@ -192,7 +192,7 @@ class _MainPageState extends State<MainPage> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const DownloadAnggotaPage(),
+                          builder: (context) => const DownloadKaryawanPage(),
                         ),
                       ).then((_) => _loadDashboardData());
                     }
@@ -209,7 +209,7 @@ class _MainPageState extends State<MainPage> {
         );
       }
     } catch (e) {
-      SnackBar(content: Text('Sync check skipped: $e'));
+      debugPrint('Sync check skipped: $e');
     }
   }
 
@@ -231,22 +231,42 @@ class _MainPageState extends State<MainPage> {
     return -1;
   }
 
+  String _getAppBarTitle() {
+    switch (_currentIndex) {
+      case 0:
+        return 'Dashboard';
+      case 1:
+        return 'Menu Utama';
+      case 2:
+        return 'Area Kerja';
+      default:
+        return 'Dashboard';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final box = GetStorage();
-
     bool isLoggedIn = box.read('isLoggin') ?? false;
 
+    final List<Widget> pages = [
+      _buildDashboardPage(context, screenWidth),
+      _buildMainMenuPage(context, screenWidth),
+      _buildAreaKerjaPage(context),
+    ];
+
     return Scaffold(
+      extendBody: true,
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
         title: Text(
-          _currentPage == 0 ? 'Dashboard' : 'Daftar Anggota',
+          _getAppBarTitle(),
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
-        backgroundColor: Theme.of(context).colorScheme.primary,
+        backgroundColor: const Color(0xFF004D40),
         foregroundColor: Colors.white,
+        elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -268,8 +288,8 @@ class _MainPageState extends State<MainPage> {
           padding: EdgeInsets.zero,
           children: [
             DrawerHeader(
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary,
+              decoration: const BoxDecoration(
+                color: Color(0xFF004D40),
               ),
               child: const Column(
                 mainAxisAlignment: MainAxisAlignment.end,
@@ -338,7 +358,7 @@ class _MainPageState extends State<MainPage> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.group),
+              leading: const Icon(Icons.badge),
               title: const Text('Data Karyawan'),
               onTap: () {
                 Navigator.pop(context);
@@ -401,68 +421,138 @@ class _MainPageState extends State<MainPage> {
         ),
       ),
       body: Container(
+        width: double.infinity,
+        height: double.infinity,
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFF00897B), Color(0xFF004D40)],
+            colors: [Color(0xFF054942), Color(0xFF177565)],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
         ),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(top: 4.0, bottom: 4.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _buildPageIndicator(0),
-                  const SizedBox(width: 8),
-                  _buildPageIndicator(1),
-                ],
-              ),
-            ),
-            Expanded(
-              child: PageView(
-                controller: _pageController,
-                onPageChanged: (int index) {
-                  setState(() {
-                    _currentPage = index;
-                  });
+        child: IndexedStack(
+          index: _currentIndex,
+          children: pages,
+        ),
+      ),
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CurvedNavigationBar(
+            key: _bottomNavigationKey,
+            index: _currentIndex,
+            height: 60.0,
+            items: <Widget>[
+              // Item 1: Dashboard
+              Builder(
+                builder: (context) {
+                  final isSelected = _currentIndex == 0;
+                  return Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.dashboard_rounded,
+                        size: isSelected ? 28 : 22,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Dashboard',
+                        style: TextStyle(
+                          color: isSelected ? Colors.white : Colors.white70,
+                          fontSize: isSelected ? 10 : 9,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                    ],
+                  );
                 },
-                children: [
-                  _buildDashboardPage(context, screenWidth),
-                  _buildMainMenuPage(context, screenWidth),
-                ],
+              ),
+              // Item 2: Menu
+              Builder(
+                builder: (context) {
+                  final isSelected = _currentIndex == 1;
+                  return Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.widgets_rounded,
+                        size: isSelected ? 28 : 22,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Menu',
+                        style: TextStyle(
+                          color: isSelected ? Colors.white : Colors.white70,
+                          fontSize: isSelected ? 10 : 9,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+              // Item 3: Area Kerja
+              Builder(
+                builder: (context) {
+                  final isSelected = _currentIndex == 2;
+                  return Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.home_work,
+                        size: isSelected ? 28 : 22,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Area Kerja',
+                        style: TextStyle(
+                          color: isSelected ? Colors.white : Colors.white70,
+                          fontSize: isSelected ? 10 : 9,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ],
+            color: const Color(0xFF004D40),
+            buttonBackgroundColor: Colors.teal.shade400,
+            backgroundColor: Colors.transparent,
+            animationCurve: Curves.easeInOut,
+            animationDuration: const Duration(milliseconds: 350),
+            onTap: (index) {
+              setState(() {
+                _currentIndex = index;
+              });
+            },
+            letIndexChange: (index) => true,
+          ),
+          Container(
+            color: const Color(0xFF004D40),
+            width: double.infinity,
+            padding: EdgeInsets.only(
+              top: 4.0,
+              bottom: MediaQuery.of(context).padding.bottom + 6.0,
+            ),
+            child: const Text(
+              'create by Rtie Development @2026 (Version 2)',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
               ),
             ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: const Padding(
-        padding: EdgeInsets.all(12.0),
-        child: Text(
-          'create by Rtie Development @2026 (Version 2)',
-          textAlign: TextAlign.center,
-          style: TextStyle(color: Colors.black54, fontSize: 12, fontWeight: FontWeight.bold),
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildPageIndicator(int index) {
-    bool isActive = _currentPage == index;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 250),
-      height: 8,
-      width: isActive ? 24 : 8,
-      decoration: BoxDecoration(
-        color: isActive ? Colors.white : Colors.white.withOpacity(0.4),
-        borderRadius: BorderRadius.circular(4),
-      ),
-    );
-  }
-
-  // Widget Halaman Dashboard dengan RefreshIndicator
   Widget _buildDashboardPage(BuildContext context, double screenWidth) {
     return RefreshIndicator(
       onRefresh: _refreshData,
@@ -594,10 +684,7 @@ class _MainPageState extends State<MainPage> {
                               ),
                               const SizedBox(height: 20),
                               Builder(builder: (context) {
-                                final double persentase = _totalAnggota > 0
-                                    ? (_totalAnggota_l / _totalAnggota) * 100
-                                    : 0.0;
-                                if(_totalAnggota_l <= 0) return const SizedBox.shrink();
+                                if (_totalAnggota_l <= 0) return const SizedBox.shrink();
                                 return Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
@@ -631,83 +718,81 @@ class _MainPageState extends State<MainPage> {
                                   ],
                                 );
                               }),
-                              Builder(builder: (context){
+                              Builder(builder: (context) {
                                 if (_totalAnggota_p <= 0) return const SizedBox.shrink();
                                 return Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-
-                                      Row(
-                                        children: [
-                                          const Icon(Icons.woman_2_rounded, color: Colors.teal, size: 26),
-                                          const SizedBox(width: 10),
-                                          Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                'Jumlah Perempuan',
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: Colors.teal.shade700,
-                                                ),
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.woman_2_rounded, color: Colors.teal, size: 26),
+                                        const SizedBox(width: 10),
+                                        Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Jumlah Perempuan',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600,
+                                                color: Colors.teal.shade700,
                                               ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-
-                                      Text(
-                                        '$_totalAnggota_p (${((_totalAnggota_p / _totalAnggota) * 100).toStringAsFixed(2)} %)',
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.teal,
+                                            ),
+                                          ],
                                         ),
+                                      ],
+                                    ),
+                                    Text(
+                                      '$_totalAnggota_p (${((_totalAnggota_p / _totalAnggota) * 100).toStringAsFixed(2)} %)',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.teal,
                                       ),
+                                    ),
                                   ],
                                 );
                               }),
-                              Builder(builder: (context){
+                              Builder(builder: (context) {
                                 if (_totalAnggota_kontrak <= 0) return const SizedBox.shrink();
                                 return Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                      Row(
-                                        children: [
-                                          const Icon(Icons.woman_2_rounded, color: Colors.teal, size: 26),
-                                          const SizedBox(width: 10),
-                                          Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                'Jumlah Anggota Kontrak',
-                                                style: TextStyle(
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: Colors.teal.shade700,
-                                                ),
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.woman_2_rounded, color: Colors.teal, size: 26),
+                                        const SizedBox(width: 10),
+                                        Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Jumlah Anggota Kontrak',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w600,
+                                                color: Colors.teal.shade700,
                                               ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                      Text(
-                                        '$_totalAnggota_kontrak',
-                                        style: const TextStyle(
-                                          fontSize: 20,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.teal,
+                                            ),
+                                          ],
                                         ),
+                                      ],
+                                    ),
+                                    Text(
+                                      '$_totalAnggota_kontrak',
+                                      style: const TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.teal,
                                       ),
-                                      Text(
-                                        '(${(((_totalAnggota_kontrak / _totalAnggota) * 100).toStringAsFixed(2))}) %',
-                                        style: const TextStyle(
-                                          fontSize: 20,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.teal,
-                                        ),
+                                    ),
+                                    Text(
+                                      '(${(((_totalAnggota_kontrak / _totalAnggota) * 100).toStringAsFixed(2))}) %',
+                                      style: const TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.teal,
                                       ),
+                                    ),
                                   ],
                                 );
                               }),
@@ -828,78 +913,28 @@ class _MainPageState extends State<MainPage> {
                             ),
                           ),
                           const SizedBox(height: 6),
-                         Builder(builder: (context){
-                           int total_anggota = _selectedAreaDetail!['total_karyawan'] ?? 0;
-                           int total_status_01 = _selectedAreaDetail!['total_status_01'] ?? 0;
-                           int total_status_02 = _selectedAreaDetail!['total_status_02'] ?? 0;
-                           return  _dashboardCard(
-                             (_selectedAreaDetail!['area_kerja'] ?? 'AREA KERJA')
-                                 .toString()
-                                 .replaceAll('"', '')
-                                 .trim(),
-                             '${total_anggota} (${(((_selectedAreaDetail!['total_karyawan'] ?? 0) / _totalAnggota) * 100).toStringAsFixed(2)}%)',
-                             Icons.location_city,
-                             Colors.teal,
-                             '${total_status_01} (${((total_status_01 / _totalAnggota) * 100).toStringAsFixed(2)}%)',
-                             '${total_status_02} (${((total_status_02 / _totalAnggota) * 100).toStringAsFixed(2)}%)',
-                           );
-                         }), const SizedBox(height: 6),
+                          Builder(builder: (context) {
+                            int total_anggota = _selectedAreaDetail!['total_anggota'] ?? 0;
+                            int total_non_anggota = _selectedAreaDetail!['total_non_anggota'] ?? 0;
+                            int total_pegawai = _selectedAreaDetail!['total_karyawan'] ?? 0;
+                            return _dashboardCard(
+                              (_selectedAreaDetail!['area_kerja'] ?? 'AREA KERJA')
+                                  .toString()
+                                  .replaceAll('"', '')
+                                  .trim(),
+                              '${total_pegawai} (${(((total_pegawai ?? 0) / _totalKaryawan) * 100).toStringAsFixed(0)}%)',
+                              Icons.location_city,
+                              Colors.teal,
+                              '${total_anggota} (${((total_anggota / total_pegawai) * 100).toStringAsFixed(0)}%)',
+                              '${total_non_anggota} (${((total_non_anggota / total_pegawai) * 100).toStringAsFixed(0)}%)',
+                            );
+                          }),
+                          const SizedBox(height: 6),
                         ],
                       ],
                     )
                   ],
                 ),
-                const SizedBox(height: 28),
-                Container(
-                  margin: const EdgeInsets.only(top: 8),
-                  child: Center(
-                    child: Material(
-                      color: Colors.teal.shade50,
-                      borderRadius: BorderRadius.circular(25),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(25),
-                        onTap: () {
-                          _pageController.animateToPage(
-                            1,
-                            duration: const Duration(milliseconds: 400),
-                            curve: Curves.easeInOutCubic,
-                          );
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Text(
-                                'Geser ke Menu Utama',
-                                style: TextStyle(
-                                  color: Colors.teal,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                  letterSpacing: 0.3,
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: const BoxDecoration(
-                                  color: Colors.teal,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.arrow_forward_ios,
-                                  size: 12,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                )
               ],
             ),
           ),
@@ -959,7 +994,7 @@ class _MainPageState extends State<MainPage> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Status Tetap :',
+                  'Total Anggota :',
                   style: TextStyle(fontSize: 11, color: Colors.grey[700]),
                 ),
                 Text(
@@ -976,7 +1011,7 @@ class _MainPageState extends State<MainPage> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Status Kontrak :',
+                  'Total Non Anggota :',
                   style: TextStyle(fontSize: 11, color: Colors.grey[700]),
                 ),
                 Text(
@@ -994,7 +1029,6 @@ class _MainPageState extends State<MainPage> {
     );
   }
 
-  // Widget Halaman Menu Utama dengan RefreshIndicator
   Widget _buildMainMenuPage(BuildContext context, double screenWidth) {
     return RefreshIndicator(
       onRefresh: _refreshData,
@@ -1083,59 +1117,197 @@ class _MainPageState extends State<MainPage> {
                     );
                   },
                 ),
-                const SizedBox(height: 28),
-                Container(
-                  margin: const EdgeInsets.only(top: 8),
-                  child: Material(
-                    color: Colors.teal.shade50,
-                    borderRadius: BorderRadius.circular(25),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(25),
-                      onTap: () {
-                        _pageController.animateToPage(
-                          0,
-                          duration: const Duration(milliseconds: 400),
-                          curve: Curves.easeInOutCubic,
-                        );
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: const BoxDecoration(
-                                color: Colors.teal,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.arrow_back_ios_new,
-                                size: 12,
-                                color: Colors.white,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            const Text(
-                              'Geser ke Dashboard',
-                              style: TextStyle(
-                                color: Colors.teal,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                                letterSpacing: 0.3,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                )
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  // 🔍 HALAMAN AREA KERJA DENGAN INPUT PENCARIAN REAL-TIME
+  Widget _buildAreaKerjaPage(BuildContext context) {
+    return RefreshIndicator(
+      onRefresh: _refreshData,
+      color: Colors.teal,
+      child: FutureBuilder<List<Map<String, dynamic>>>(
+        future: _dbHelper.queryDataCount(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator(color: Colors.white));
+          }
+
+          if (snapshot.hasError) {
+            return Center(
+              child: Text(
+                'Terjadi kesalahan: ${snapshot.error}',
+                style: const TextStyle(color: Colors.white),
+              ),
+            );
+          }
+
+          final allAreaList = snapshot.data ?? [];
+          final query = _searchAreaController.text.toLowerCase().trim();
+
+          // Saring daftar berdasarkan teks pencarian
+          final filteredAreaList = allAreaList.where((area) {
+            final areaName = (area['area_kerja'] ?? '')
+                .toString()
+                .replaceAll('"', '')
+                .toLowerCase();
+            return areaName.contains(query);
+          }).toList();
+
+          return Center(
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 500),
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Column(
+                children: [
+                  const SizedBox(height: 8),
+                  // 🔍 Field Input Pencarian
+                  TextField(
+                    controller: _searchAreaController,
+                    onChanged: (value) {
+                      setState(() {}); // Refresh tampilan saat kata kunci berubah
+                    },
+                    decoration: InputDecoration(
+                      hintText: "Cari area kerja...",
+                      hintStyle: const TextStyle(color: Colors.black45, fontSize: 14),
+                      prefixIcon: const Icon(Icons.search, color: Colors.teal),
+                      suffixIcon: _searchAreaController.text.isNotEmpty
+                          ? IconButton(
+                        icon: const Icon(Icons.clear, color: Colors.grey),
+                        onPressed: () {
+                          setState(() {
+                            _searchAreaController.clear();
+                          });
+                        },
+                      )
+                          : null,
+                      filled: true,
+                      fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // 📋 List Area Kerja
+                  Expanded(
+                    child: filteredAreaList.isEmpty
+                        ? const Center(
+                      child: Text(
+                        'Area kerja tidak ditemukan',
+                        style: TextStyle(color: Colors.white70, fontSize: 15),
+                      ),
+                    )
+                        : ListView.builder(
+                      itemCount: filteredAreaList.length,
+                      itemBuilder: (context, index) {
+                        final item = filteredAreaList[index];
+                        String areaName = (item['area_kerja'] ?? 'TANPA AREA')
+                            .toString()
+                            .replaceAll('"', '')
+                            .trim();
+                        int totalKaryawan = item['total_karyawan'] ?? 0;
+                        int totalAnggota = item['total_anggota'] ?? 0;
+                        int totalNonAnggota = item['total_non_anggota'] ?? 0;
+
+                        return Card(
+                          elevation: 4,
+                          margin: const EdgeInsets.only(bottom: 3),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const CircleAvatar(
+                                      backgroundColor: Color(0xFF004D40),
+                                      child: Icon(Icons.location_city, color: Colors.white),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        areaName,
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.black87,
+                                        ),
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.teal.shade50,
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(color: Colors.teal.shade200),
+                                      ),
+                                      child: Text(
+                                        '$totalKaryawan Orang',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.teal,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const Divider(height: 20, thickness: 1),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.check_circle, color: Colors.teal, size: 18),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          'Anggota: $totalAnggota',
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.black54,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.cancel, color: Colors.orange, size: 18),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          'Non-Anggota: $totalNonAnggota',
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.black54,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }

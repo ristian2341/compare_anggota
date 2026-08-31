@@ -248,15 +248,15 @@ class DatabaseHelper {
   Future<List<Map<String, dynamic>>> queryGroupedByArea() async {
     Database db = await database;
     return await db.rawQuery('''
-     SELECT 
-            area_kerja,
-            COUNT(CASE WHEN dk.status = '01' THEN 1 END) AS total_status_01,
-            COUNT(CASE WHEN dk.status = '02' THEN 1 END) AS total_status_02,
-            COUNT(*) AS total_karyawan
-        FROM data_karyawan dk
-        INNER JOIN data_anggota da ON (dk.nik = da.nomor_nik)
-        GROUP BY area_kerja
-        ORDER BY total_karyawan DESC;
+      SELECT 
+          dk.area_kerja,
+          COUNT(dk.nik) AS total_karyawan,
+          COUNT(CASE WHEN da.nomor_nik IS NOT NULL THEN 1 END) AS total_anggota,
+          COUNT(CASE WHEN da.nomor_nik IS NULL THEN 1 END) AS total_non_anggota
+      FROM data_karyawan dk
+      LEFT JOIN data_anggota da ON (dk.nik = da.nomor_nik)
+      group by dk.area_kerja
+      ORDER BY total_anggota asc;
     ''');
   }
 
@@ -340,6 +340,33 @@ class DatabaseHelper {
         jumlah_laki INTEGER,
         jumlah_perempuan INTEGER
       )
+    ''');
+  }
+
+  Future<List<Map<String, dynamic>>> queryDataCount() async {
+    Database db = await database;
+    return await db.rawQuery('''
+      SELECT 
+          dk.area_kerja,
+          COUNT(dk.nik) AS total_karyawan,
+          COUNT(CASE WHEN da.nomor_nik IS NOT NULL THEN 1 END) AS total_anggota,
+          COUNT(CASE WHEN da.nomor_nik IS NULL THEN 1 END) AS total_non_anggota,
+          (COUNT(CASE WHEN da.nomor_nik IS NULL THEN 1 END) - COUNT(CASE WHEN da.nomor_nik IS NOT NULL THEN 1 END)) AS total
+      FROM data_karyawan dk
+      LEFT JOIN data_anggota da ON (dk.nik = da.nomor_nik)
+      GROUP BY dk.area_kerja
+      ORDER BY total DESC, total_anggota ASC, total_non_anggota DESC;
+    ''');
+  }
+
+  Future<List<Map<String, dynamic>>> queryDataKaryawanAnggota() async {
+    Database db = await database;
+    return await db.rawQuery(''' 
+       SELECT dk.*,(case when da.nomor_nik is not null then 'YES' else 'NO' end) anggota
+        FROM data_karyawan dk
+        LEFT JOIN data_anggota da ON (dk.nik = da.nomor_nik)
+        GROUP BY dk.nik
+        ORDER BY CAST(dk.nik AS integer)
     ''');
   }
 }

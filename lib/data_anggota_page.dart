@@ -62,7 +62,7 @@ class _DataAnggotaPageState extends State<DataAnggotaPage> {
   Widget build(BuildContext context) {
     // Checkbox Filter NIK Tidak Ada di Karyawan
     total_anggota = _showOnlyMissing ?  _dataAnggota.where((item) {
-      final nik = (item['nomor_nik'] ?? item['nik'] ?? '').toString().trim();
+      final nik = (item['nomor_nik']).toString().trim();
       return nik.isEmpty || !_nikKaryawanSet.contains(nik);
     }).toList().length : _dataAnggota.length;
 

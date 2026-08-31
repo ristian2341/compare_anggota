@@ -30,19 +30,9 @@ class _DownloadAnggotaPageState extends State<DownloadAnggotaPage> {
   /// Memuat data anggota sekaligus mengambil daftar NIK karyawan untuk komparasi
   Future<void> _loadDataAndCompare() async {
     final anggotaData = await _dbHelper.queryAllAnggota();
-
-    // Ambil data karyawan dari database helper
-    final karyawanData = await _dbHelper.queryAllKaryawan();
-
-    final Set<String> nikSet = karyawanData
-        .map((k) => k['nik']?.toString().trim() ?? '')
-        .where((nik) => nik.isNotEmpty)
-        .toSet();
-
     setState(() {
       _listAnggota = anggotaData;
       _totalData = anggotaData.length;
-      _existingNikKaryawan = nikSet;
     });
   }
 
@@ -74,23 +64,50 @@ class _DownloadAnggotaPageState extends State<DownloadAnggotaPage> {
         await _dbHelper.deleteAllAnggota();
 
         int importedCount = 0;
+        int skippedCount = 0;
+
+        // Set untuk melacak NIK yang sudah diproses agar tidak ada duplikasi NIK dari CSV
+        final Set<String> processedNiks = {};
 
         for (int i = 1; i < lines.length; i++) {
-          final columns = lines[i].split(',');
+          final line = lines[i].trim();
+          if (line.isEmpty) continue; // Lewati baris kosong
+
+          final columns = line.split(',');
 
           if (columns.length >= 4) {
-            await _dbHelper.insertAnggota({
-              'nomor_nik': columns[1].trim(),
-              'barcode': columns[2].trim(),
-              'nama_anggota': columns[3].trim(),
-            });
-            importedCount++;
+            // Bersihkan NIK dari tanda petik, spasi, dan karakter tersembunyi
+            final rawNik = columns[1].replaceAll('"', '').trim();
+            final barcode = columns[2].replaceAll('"', '').trim();
+            final namaAnggota = columns[3].replaceAll('"', '').trim();
+
+            // 🔍 PENGECEKAN NIK
+            // 1. Validasi NIK tidak boleh kosong
+            // 2. Validasi NIK belum pernah diimpor dalam perulangan ini (mencegah duplikasi)
+            if (rawNik.isNotEmpty && !processedNiks.contains(rawNik)) {
+              processedNiks.add(rawNik);
+
+              await _dbHelper.insertAnggota({
+                'nomor_nik': rawNik,
+                'barcode': barcode,
+                'nama_anggota': namaAnggota,
+              });
+              importedCount++;
+            } else {
+              skippedCount++; // Catat jika NIK kosong atau duplikat
+            }
           }
         }
+
         await _loadDataAndCompare();
+
         if (mounted) {
+          String message = 'Berhasil mengimpor $importedCount data anggota';
+          if (skippedCount > 0) {
+            message += ' ($skippedCount NIK kosong/duplikat dilewati)';
+          }
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Berhasil mengimpor $importedCount data dari URL')),
+            SnackBar(content: Text(message)),
           );
         }
       } else {
@@ -123,28 +140,62 @@ class _DownloadAnggotaPageState extends State<DownloadAnggotaPage> {
 
           await _dbHelper.deleteAllAnggota();
           int importedCount = 0;
+          int skippedCount = 0;
+
+          // Track NIK unik untuk mencegah duplikasi data anggota
+          final Set<String> processedNiks = {};
 
           for (var table in excel.tables.keys) {
             var sheet = excel.tables[table];
             if (sheet == null) continue;
 
+            // Skip header (i = 1)
             for (int i = 1; i < sheet.maxRows; i++) {
               var row = sheet.row(i);
-              if (row.length >= 4) {
+              if (row.isEmpty) continue;
+
+              // Ambil NIK dari kolom indeks ke-1 (kolom B di Excel)
+              String rawNik = row.length > 1 && row[1]?.value != null
+                  ? row[1]!.value.toString()
+                  : '';
+
+              // Clean NIK: Menghapus format desimal Excel (.0) dan karakter tak diinginkan
+              if (rawNik.contains('.')) {
+                rawNik = rawNik.split('.').first;
+              }
+              rawNik = rawNik.replaceAll('"', '').trim();
+
+              // 🔍 PENGECEKAN NIK
+              // 1. Validasi NIK tidak boleh kosong
+              // 2. Validasi NIK belum pernah diimpor (mencegah duplikat)
+              if (rawNik.isNotEmpty && !processedNiks.contains(rawNik)) {
+                processedNiks.add(rawNik);
+
                 await _dbHelper.insertAnggota({
-                  'nomor_nik': row[1]?.value.toString().trim() ?? '',
-                  'barcode': row[2]?.value.toString().trim() ?? '',
-                  'nama_anggota': row[3]?.value.toString().trim() ?? ''
+                  'nomor_nik': rawNik,
+                  'barcode': row.length > 2 && row[2]?.value != null
+                      ? row[2]!.value.toString().replaceAll('"', '').trim()
+                      : '',
+                  'nama_anggota': row.length > 3 && row[3]?.value != null
+                      ? row[3]!.value.toString().replaceAll('"', '').trim()
+                      : '',
                 });
                 importedCount++;
+              } else {
+                skippedCount++; // Catat jika NIK kosong/duplikat
               }
             }
           }
 
           await _loadDataAndCompare();
+
           if (mounted) {
+            String message = 'Berhasil mengimpor $importedCount data anggota dari file';
+            if (skippedCount > 0) {
+              message += ' ($skippedCount NIK kosong/duplikat dilewati)';
+            }
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Berhasil mengimpor $importedCount data dari file')),
+              SnackBar(content: Text(message)),
             );
           }
         }
@@ -196,7 +247,6 @@ class _DownloadAnggotaPageState extends State<DownloadAnggotaPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-
                   /// HEADER
                   Column(
                     children: const [
