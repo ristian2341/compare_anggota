@@ -40,15 +40,15 @@ class _DownloadKaryawanPageState extends State<DownloadKaryawanPage> {
         throw 'Link URL belum diatur di menu Setting (Sign In)';
       }
 
-      // Convert Google Sheets Link to CSV Export link if needed
+      // Convert Google Sheets Link to TSV Export link if needed
       String downloadUrl = url;
       if (url.contains('docs.google.com/spreadsheets')) {
         if (url.contains('/pubhtml')) {
-          downloadUrl = url.replaceFirst('/pubhtml', '/pub?output=csv');
+          downloadUrl = url.replaceFirst('/pubhtml', '/pub?output=tsv');
         } else if (url.contains('/edit')) {
-          downloadUrl = url.replaceFirst('/edit#gid=', '/export?format=csv&gid=');
-          if (!downloadUrl.contains('/export?format=csv')) {
-            downloadUrl = url.split('/edit')[0] + '/export?format=csv';
+          downloadUrl = url.replaceFirst('/edit#gid=', '/export?format=tsv&gid=');
+          if (!downloadUrl.contains('/export?format=tsv')) {
+            downloadUrl = url.split('/edit')[0] + '/export?format=tsv';
           }
         }
       }
@@ -59,22 +59,51 @@ class _DownloadKaryawanPageState extends State<DownloadKaryawanPage> {
         await _dbHelper.deleteAllKaryawan();
 
         int importedCount = 0;
-        // Skip header
+        int skippedCount = 0;
+
+        // Track NIK yang sudah diimpor untuk mencegah duplikasi
+        final Set<String> processedNiks = {};
+
+        // Skip header (i = 1)
         for (int i = 1; i < lines.length; i++) {
-          final columns = lines[i].split(',');
-          if (columns.length >= 4) {
+          final line = lines[i].trim();
+          if (line.isEmpty) continue; // Lewati baris kosong
+
+          final columns = line.split('\t');
+
+          // Bersihkan NIK dari tanda petik ganda dan spasi
+          final rawNik = columns.length > 1
+              ? columns[1].replaceAll('"', '').trim()
+              : '';
+
+          // 🔍 PENGECEKAN NIK
+          // 1. NIK tidak boleh kosong
+          // 2. NIK belum ada dalam proses impor ini (mencegah duplikat)
+          if (rawNik.isNotEmpty && !processedNiks.contains(rawNik)) {
+            processedNiks.add(rawNik);
+
             await _dbHelper.insertKaryawan({
-              'nik': columns[1].trim(),
-              'nama_karyawan': columns[3].trim(),
-              'area_kerja': columns[4].trim(),
+              'nik': rawNik,
+              'nama_karyawan': columns.length > 3 ? columns[3].replaceAll('"', '').trim() : '',
+              'area_kerja': columns.length > 4 ? columns[4].replaceAll('"', '').trim() : '',
+              'status': columns.length > 5 ? columns[5].replaceAll('"', '').trim() : '',
+              'tgl_berhenti': columns.length > 6 ? columns[6].replaceAll('"', '').trim() : '',
             });
             importedCount++;
+          } else {
+            skippedCount++; // Catat jika NIK kosong atau duplikat
           }
         }
+
         await _countCurrentData();
+
         if (mounted) {
+          String message = 'Berhasil mengimpor $importedCount data karyawan';
+          if (skippedCount > 0) {
+            message += ' ($skippedCount NIK kosong/duplikat dilewati)';
+          }
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Berhasil mengimpor $importedCount data karyawan dari URL')),
+            SnackBar(content: Text(message)),
           );
         }
       } else {
@@ -114,11 +143,13 @@ class _DownloadKaryawanPageState extends State<DownloadKaryawanPage> {
             
             for (int i = 1; i < sheet.maxRows; i++) {
               var row = sheet.row(i);
-              if (row.length >= 3) {
+              if (row.length >= 5) {
                 await _dbHelper.insertKaryawan({
                   'nik': row[0]?.value.toString() ?? '',
                   'nama_karyawan': row[1]?.value.toString() ?? '',
                   'area_kerja': row[2]?.value.toString() ?? '',
+                  'status' : row[3]?.value.toString() ?? '',
+                  'tgl_berhenti' : row[4]?.value.toString() ?? '',
                 });
                 importedCount++;
               }
