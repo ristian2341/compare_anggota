@@ -15,19 +15,24 @@ class DownloadAnggotaPage extends StatefulWidget {
 class _DownloadAnggotaPageState extends State<DownloadAnggotaPage> {
   final DatabaseHelper _dbHelper = DatabaseHelper();
   bool _isProcessing = false;
-  String? _statusPath;
   int _totalData = 0;
+  bool _showOnlyMissing = false; // State untuk checkbox filter
+
+  List<Map<String, dynamic>> _listAnggota = [];
+  Set<String> _existingNikKaryawan = {};
 
   @override
   void initState() {
     super.initState();
-    _countCurrentData();
+    _loadDataAndCompare();
   }
 
-  Future<void> _countCurrentData() async {
-    final data = await _dbHelper.queryAllAnggota();
+  /// Memuat data anggota sekaligus mengambil daftar NIK karyawan untuk komparasi
+  Future<void> _loadDataAndCompare() async {
+    final anggotaData = await _dbHelper.queryAllAnggota();
     setState(() {
-      _totalData = data.length;
+      _listAnggota = anggotaData;
+      _totalData = anggotaData.length;
     });
   }
 
@@ -41,7 +46,6 @@ class _DownloadAnggotaPageState extends State<DownloadAnggotaPage> {
         throw 'Link URL belum diatur di menu Setting (Sign In)';
       }
 
-      // Convert Google Sheets Link to CSV Export link if needed
       String downloadUrl = url;
       if (url.contains('docs.google.com/spreadsheets')) {
         if (url.contains('/pubhtml')) {
@@ -60,31 +64,50 @@ class _DownloadAnggotaPageState extends State<DownloadAnggotaPage> {
         await _dbHelper.deleteAllAnggota();
 
         int importedCount = 0;
-        // Skip header if exists
+        int skippedCount = 0;
+
+        // Set untuk melacak NIK yang sudah diproses agar tidak ada duplikasi NIK dari CSV
+        final Set<String> processedNiks = {};
 
         for (int i = 1; i < lines.length; i++) {
-          final columns = lines[i].split(',');
+          final line = lines[i].trim();
+          if (line.isEmpty) continue; // Lewati baris kosong
 
-          if (columns.length >= 5) {
-            await _dbHelper.insertAnggota({
-              'nomor_nik': columns[1].trim() ?? '',
-              'barcode': columns[2].trim() ?? '',
-              'nama_anggota': columns[3].trim() ?? '',
-            });
-            importedCount++;
-          } else if(columns.length >=4 ){
-            await _dbHelper.insertAnggota({
-              'nomor_nik': columns[1].trim() ?? '',
-              'barcode': columns[2].trim() ?? '',
-              'nama_anggota': columns[3].trim() ?? ''
-            });
-            importedCount++;
+          final columns = line.split(',');
+
+          if (columns.length >= 4) {
+            // Bersihkan NIK dari tanda petik, spasi, dan karakter tersembunyi
+            final rawNik = columns[1].replaceAll('"', '').trim();
+            final barcode = columns[2].replaceAll('"', '').trim();
+            final namaAnggota = columns[3].replaceAll('"', '').trim();
+
+            // 🔍 PENGECEKAN NIK
+            // 1. Validasi NIK tidak boleh kosong
+            // 2. Validasi NIK belum pernah diimpor dalam perulangan ini (mencegah duplikasi)
+            if (rawNik.isNotEmpty && !processedNiks.contains(rawNik)) {
+              processedNiks.add(rawNik);
+
+              await _dbHelper.insertAnggota({
+                'nomor_nik': rawNik,
+                'barcode': barcode,
+                'nama_anggota': namaAnggota,
+              });
+              importedCount++;
+            } else {
+              skippedCount++; // Catat jika NIK kosong atau duplikat
+            }
           }
         }
-        await _countCurrentData();
+
+        await _loadDataAndCompare();
+
         if (mounted) {
+          String message = 'Berhasil mengimpor $importedCount data anggota';
+          if (skippedCount > 0) {
+            message += ' ($skippedCount NIK kosong/duplikat dilewati)';
+          }
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Berhasil mengimpor $importedCount data dari URL')),
+            SnackBar(content: Text(message)),
           );
         }
       } else {
@@ -114,31 +137,65 @@ class _DownloadAnggotaPageState extends State<DownloadAnggotaPage> {
         if (await file.exists()) {
           var bytes = file.readAsBytesSync();
           var excel = Excel.decodeBytes(bytes);
-          
+
           await _dbHelper.deleteAllAnggota();
           int importedCount = 0;
+          int skippedCount = 0;
+
+          // Track NIK unik untuk mencegah duplikasi data anggota
+          final Set<String> processedNiks = {};
 
           for (var table in excel.tables.keys) {
             var sheet = excel.tables[table];
             if (sheet == null) continue;
-            
+
+            // Skip header (i = 1)
             for (int i = 1; i < sheet.maxRows; i++) {
               var row = sheet.row(i);
-              if (row.length >= 5) {
+              if (row.isEmpty) continue;
+
+              // Ambil NIK dari kolom indeks ke-1 (kolom B di Excel)
+              String rawNik = row.length > 1 && row[1]?.value != null
+                  ? row[1]!.value.toString()
+                  : '';
+
+              // Clean NIK: Menghapus format desimal Excel (.0) dan karakter tak diinginkan
+              if (rawNik.contains('.')) {
+                rawNik = rawNik.split('.').first;
+              }
+              rawNik = rawNik.replaceAll('"', '').trim();
+
+              // 🔍 PENGECEKAN NIK
+              // 1. Validasi NIK tidak boleh kosong
+              // 2. Validasi NIK belum pernah diimpor (mencegah duplikat)
+              if (rawNik.isNotEmpty && !processedNiks.contains(rawNik)) {
+                processedNiks.add(rawNik);
+
                 await _dbHelper.insertAnggota({
-                  'nomor_nik': row[1]?.value.toString() ?? '',
-                  'barcode': row[2]?.value.toString() ?? '',
-                  'nama_anggota': row[3]?.value.toString() ?? ''
+                  'nomor_nik': rawNik,
+                  'barcode': row.length > 2 && row[2]?.value != null
+                      ? row[2]!.value.toString().replaceAll('"', '').trim()
+                      : '',
+                  'nama_anggota': row.length > 3 && row[3]?.value != null
+                      ? row[3]!.value.toString().replaceAll('"', '').trim()
+                      : '',
                 });
                 importedCount++;
+              } else {
+                skippedCount++; // Catat jika NIK kosong/duplikat
               }
             }
           }
 
-          await _countCurrentData();
+          await _loadDataAndCompare();
+
           if (mounted) {
+            String message = 'Berhasil mengimpor $importedCount data anggota dari file';
+            if (skippedCount > 0) {
+              message += ' ($skippedCount NIK kosong/duplikat dilewati)';
+            }
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Berhasil mengimpor $importedCount data dari file')),
+              SnackBar(content: Text(message)),
             );
           }
         }
@@ -173,7 +230,7 @@ class _DownloadAnggotaPageState extends State<DownloadAnggotaPage> {
         child: Center(
           child: SingleChildScrollView(
             child: Container(
-              constraints: const BoxConstraints(maxWidth: 420),
+              constraints: const BoxConstraints(maxWidth: 600),
               margin: const EdgeInsets.all(16),
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
@@ -190,7 +247,6 @@ class _DownloadAnggotaPageState extends State<DownloadAnggotaPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-
                   /// HEADER
                   Column(
                     children: const [
@@ -209,7 +265,7 @@ class _DownloadAnggotaPageState extends State<DownloadAnggotaPage> {
 
                   const SizedBox(height: 24),
 
-                  /// TOTAL DATA
+                  /// TOTAL DATA CARD
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -226,7 +282,7 @@ class _DownloadAnggotaPageState extends State<DownloadAnggotaPage> {
                         Text(
                           '$_totalData',
                           style: const TextStyle(
-                            fontSize: 28,
+                            fontSize: 20,
                             fontWeight: FontWeight.bold,
                             color: Colors.teal,
                           ),
@@ -235,7 +291,7 @@ class _DownloadAnggotaPageState extends State<DownloadAnggotaPage> {
                     ),
                   ),
 
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 6),
 
                   /// LOADING ATAU BUTTON
                   if (_isProcessing)
@@ -255,10 +311,10 @@ class _DownloadAnggotaPageState extends State<DownloadAnggotaPage> {
                         splashColor: Colors.white24,
                         highlightColor: Colors.white10,
                         onTap: _importFromUrl,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                        child: const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                           child: Row(
-                            children: const [
+                            children: [
                               Icon(Icons.cloud_download, color: Colors.white),
                               SizedBox(width: 16),
                               Expanded(
@@ -278,7 +334,22 @@ class _DownloadAnggotaPageState extends State<DownloadAnggotaPage> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
+
+                    /// BUTTON EXCEL FILE
+                    OutlinedButton.icon(
+                      onPressed: _importFromFile,
+                      icon: const Icon(Icons.file_upload_outlined, color: Colors.teal),
+                      label: const Text('Import dari File Excel (.xlsx)',
+                          style: TextStyle(color: Colors.teal, fontWeight: FontWeight.bold)),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        side: const BorderSide(color: Colors.teal),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                    ),
                   ],
                 ],
               ),
@@ -297,4 +368,3 @@ class _DownloadAnggotaPageState extends State<DownloadAnggotaPage> {
     );
   }
 }
-

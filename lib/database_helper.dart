@@ -44,12 +44,16 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 4, // 1. Naikkan versi ke 3
+      version: 2, // 1. Naikkan versi ke 3
       onCreate: _onCreate,
       onUpgrade: (db, oldVersion, newVersion) async {
         print("Mendeteksi upgrade dari versi $oldVersion ke $newVersion");
         await _onCreate(db, newVersion);
-      }
+      },
+      onOpen: (db) async {
+        // Jalankan pengecekan kolom setiap kali database dibuka
+        await _checkAndAddColumns(db);
+      },
     );
   }
 
@@ -244,16 +248,15 @@ class DatabaseHelper {
   Future<List<Map<String, dynamic>>> queryGroupedByArea() async {
     Database db = await database;
     return await db.rawQuery('''
-     SELECT 
-            area_kerja,
-            COUNT(CASE WHEN dk.status = '01' THEN 1 END) AS total_status_01,
-            COUNT(CASE WHEN dk.status = '02' THEN 1 END) AS total_status_02,
-            COUNT(*) AS total_karyawan
-        FROM data_karyawan dk
-        INNER JOIN data_anggota da ON (dk.nik = da.nomor_nik)
-        WHERE dk.status IN ('01', '02')
-        GROUP BY area_kerja
-        ORDER BY total_karyawan DESC;
+      SELECT 
+          dk.area_kerja,
+          COUNT(dk.nik) AS total_karyawan,
+          COUNT(CASE WHEN da.nomor_nik IS NOT NULL THEN 1 END) AS total_anggota,
+          COUNT(CASE WHEN da.nomor_nik IS NULL THEN 1 END) AS total_non_anggota
+      FROM data_karyawan dk
+      LEFT JOIN data_anggota da ON (dk.nik = da.nomor_nik)
+      group by dk.area_kerja
+      ORDER BY total_anggota asc;
     ''');
   }
 
@@ -309,5 +312,61 @@ class DatabaseHelper {
     Database db = await database;
     String sql = ''' select dk.nik,da.nama_anggota,dk.status,dk.tgl_berhenti from data_karyawan dk inner join data_anggota da on(dk.nik = da.nomor_nik) order by dk.nik ''';
     return await db.rawQuery(sql);
+  }
+
+  Future<void> _checkAndAddColumns(Database db) async {
+    // 1. Ambil semua informasi kolom dari tabel 'data_karyawan'
+    List<Map<String, dynamic>> columns = await db.rawQuery("PRAGMA table_info(data_karyawan)");
+
+    // 2. Ekstrak nama-nama kolom ke dalam List String
+    List<String> existingColumns = columns.map((c) => c['name'].toString()).toList();
+
+    // 3. Cek dan tambah kolom 'status' jika belum ada
+    if (!existingColumns.contains('status')) {
+      await db.execute("ALTER TABLE data_karyawan ADD COLUMN status TEXT;");
+    }
+
+    // 4. Cek dan tambah kolom 'tgl_berhenti' (atau 'tgl_kontrak') jika belum ada
+    if (!existingColumns.contains('tgl_berhenti')) {
+      await db.execute("ALTER TABLE data_karyawan ADD COLUMN tgl_berhenti TEXT;");
+    }
+
+    // 5. cek tabel 'data_jen_kel Table Input Jenis Kelamin
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS data_jen_kel (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        bulan TEXT,
+        tahun TEXT,
+        jumlah_laki INTEGER,
+        jumlah_perempuan INTEGER
+      )
+    ''');
+  }
+
+  Future<List<Map<String, dynamic>>> queryDataCount() async {
+    Database db = await database;
+    return await db.rawQuery('''
+      SELECT 
+          dk.area_kerja,
+          COUNT(dk.nik) AS total_karyawan,
+          COUNT(CASE WHEN da.nomor_nik IS NOT NULL THEN 1 END) AS total_anggota,
+          COUNT(CASE WHEN da.nomor_nik IS NULL THEN 1 END) AS total_non_anggota,
+          (COUNT(CASE WHEN da.nomor_nik IS NULL THEN 1 END) - COUNT(CASE WHEN da.nomor_nik IS NOT NULL THEN 1 END)) AS total
+      FROM data_karyawan dk
+      LEFT JOIN data_anggota da ON (dk.nik = da.nomor_nik)
+      GROUP BY dk.area_kerja
+      ORDER BY total DESC, total_anggota ASC, total_non_anggota DESC;
+    ''');
+  }
+
+  Future<List<Map<String, dynamic>>> queryDataKaryawanAnggota() async {
+    Database db = await database;
+    return await db.rawQuery(''' 
+       SELECT dk.*,(case when da.nomor_nik is not null then 'YES' else 'NO' end) anggota
+        FROM data_karyawan dk
+        LEFT JOIN data_anggota da ON (dk.nik = da.nomor_nik)
+        GROUP BY dk.nik
+        ORDER BY CAST(dk.nik AS integer)
+    ''');
   }
 }

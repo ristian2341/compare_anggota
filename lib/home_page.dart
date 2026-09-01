@@ -29,8 +29,6 @@ class _HomePageState extends State<HomePage> {
   final double minColArea = 100;
   final double minTableWidth = 600;
 
-
-
   @override
   void initState() {
     super.initState();
@@ -40,26 +38,22 @@ class _HomePageState extends State<HomePage> {
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
-      final karyawan = await _dbHelper.queryAllKaryawan();
-      final anggota = await _dbHelper.queryAllAnggota();
-
-      final Set<String> nikAnggotaSet = anggota
-          .map((a) => a['nomor_nik']?.toString() ?? '')
-          .where((nik) => nik.isNotEmpty)
-          .toSet();
+      final karyawan = await _dbHelper.queryDataKaryawanAnggota();
 
       final List<Map<String, dynamic>> combined = [];
       String status_pegawai = '';
       for (var i = 0; i < karyawan.length; i++) {
         final k = karyawan[i];
-        final nik = k['nik']?.toString() ?? '';
-        final isAnggota = nikAnggotaSet.contains(nik);
-        if(k['status'] == '01'){
+        final nik = k['nik']?.toString().trim() ?? '';
+
+        if (k['status'] == '01') {
           status_pegawai = 'Tetap';
-        }else if(k['status'] == '02'){
+        } else if (k['status'] == '02') {
           status_pegawai = 'Kontrak';
-        }else{
+        } else if (k['status'] == '03') {
           status_pegawai = 'Magang';
+        } else {
+          status_pegawai = '-';
         }
 
         combined.add({
@@ -68,7 +62,7 @@ class _HomePageState extends State<HomePage> {
           'area': k['area_kerja'] ?? '',
           'status_pegawai': status_pegawai,
           'tgl_berhenti': k['tgl_berhenti'] ?? '',
-          'status': isAnggota ? 'YES' : 'NO',
+          'status': k['anggota'] ?? 'No',
         });
       }
 
@@ -120,7 +114,7 @@ class _HomePageState extends State<HomePage> {
 
       final keyword = isContains ? searchLower.substring(1) : searchLower;
 
-      String nik = item['nik'].toString().toLowerCase();
+      String nik = item['nik'].toString().toLowerCase().trim();
       String nama = item['nama'].toString().toLowerCase();
       String area = item['area'].toString().toLowerCase();
 
@@ -131,7 +125,7 @@ class _HomePageState extends State<HomePage> {
       }
 
       if (_searchBy == "NIK") {
-        return match(nik);
+        return match(nik.trim());
       } else if (_searchBy == "Nama") {
         return match(nama);
       } else if (_searchBy == "Area") {
@@ -251,7 +245,6 @@ class _HomePageState extends State<HomePage> {
       ),
       body: Stack(
         children: [
-
           /// BODY UTAMA
           Container(
             decoration: const BoxDecoration(
