@@ -46,11 +46,11 @@ class _HomePageState extends State<HomePage> {
         final k = karyawan[i];
         final nik = k['nik']?.toString().trim() ?? '';
 
-        if (k['status'] == '01') {
+        if (k['status'] == '01' || k['status'] == '1') {
           status_pegawai = 'Tetap';
-        } else if (k['status'] == '02') {
+        } else if (k['status'] == '02' || k['status'] == '2') {
           status_pegawai = 'Kontrak';
-        } else if (k['status'] == '03') {
+        } else if (k['status'] == '03' || k['status'] == '3') {
           status_pegawai = 'Magang';
         } else {
           status_pegawai = '-';
