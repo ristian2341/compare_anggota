@@ -66,9 +66,6 @@ class _DownloadAnggotaPageState extends State<DownloadAnggotaPage> {
         int importedCount = 0;
         int skippedCount = 0;
 
-        // Set untuk melacak NIK yang sudah diproses agar tidak ada duplikasi NIK dari CSV
-        final Set<String> processedNiks = {};
-
         for (int i = 1; i < lines.length; i++) {
           final line = lines[i].trim();
           if (line.isEmpty) continue; // Lewati baris kosong
@@ -84,9 +81,7 @@ class _DownloadAnggotaPageState extends State<DownloadAnggotaPage> {
             // 🔍 PENGECEKAN NIK
             // 1. Validasi NIK tidak boleh kosong
             // 2. Validasi NIK belum pernah diimpor dalam perulangan ini (mencegah duplikasi)
-            if (rawNik.isNotEmpty && !processedNiks.contains(rawNik)) {
-              processedNiks.add(rawNik);
-
+            if (rawNik.isNotEmpty) {
               await _dbHelper.insertAnggota({
                 'nomor_nik': rawNik,
                 'barcode': barcode,
@@ -142,9 +137,6 @@ class _DownloadAnggotaPageState extends State<DownloadAnggotaPage> {
           int importedCount = 0;
           int skippedCount = 0;
 
-          // Track NIK unik untuk mencegah duplikasi data anggota
-          final Set<String> processedNiks = {};
-
           for (var table in excel.tables.keys) {
             var sheet = excel.tables[table];
             if (sheet == null) continue;
@@ -168,9 +160,7 @@ class _DownloadAnggotaPageState extends State<DownloadAnggotaPage> {
               // 🔍 PENGECEKAN NIK
               // 1. Validasi NIK tidak boleh kosong
               // 2. Validasi NIK belum pernah diimpor (mencegah duplikat)
-              if (rawNik.isNotEmpty && !processedNiks.contains(rawNik)) {
-                processedNiks.add(rawNik);
-
+              if (rawNik.isNotEmpty) {
                 await _dbHelper.insertAnggota({
                   'nomor_nik': rawNik,
                   'barcode': row.length > 2 && row[2]?.value != null

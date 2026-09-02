@@ -61,9 +61,6 @@ class _DownloadKaryawanPageState extends State<DownloadKaryawanPage> {
         int importedCount = 0;
         int skippedCount = 0;
 
-        // Track NIK yang sudah diimpor untuk mencegah duplikasi
-        final Set<String> processedNiks = {};
-
         // Skip header (i = 1)
         for (int i = 1; i < lines.length; i++) {
           final line = lines[i].trim();
@@ -79,9 +76,7 @@ class _DownloadKaryawanPageState extends State<DownloadKaryawanPage> {
           // 🔍 PENGECEKAN NIK
           // 1. NIK tidak boleh kosong
           // 2. NIK belum ada dalam proses impor ini (mencegah duplikat)
-          if (rawNik.isNotEmpty && !processedNiks.contains(rawNik)) {
-            processedNiks.add(rawNik);
-
+          if (rawNik.isNotEmpty) {
             await _dbHelper.insertKaryawan({
               'nik': rawNik,
               'nama_karyawan': columns.length > 3 ? columns[3].replaceAll('"', '').trim() : '',
