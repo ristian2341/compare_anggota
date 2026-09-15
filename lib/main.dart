@@ -58,9 +58,13 @@ class _MainPageState extends State<MainPage> {
   int _totalAnggota_l = 0;
   int _totalAnggota_p = 0;
   int _totalAnggota_kontrak = 0;
+  int _totalAnggota_tetap = 0;
   bool _isLoadingDashboard = true;
 
   Map<String, dynamic>? _selectedAreaDetail;
+
+  // 1. Tambahkan variabel Future di _DataPageState kamu
+  late Future<List<Map<String, dynamic>>> _areaFuture;
 
   @override
   void initState() {
@@ -69,6 +73,7 @@ class _MainPageState extends State<MainPage> {
       _checkDataSync();
       _loadDashboardData();
     });
+    _areaFuture = _dbHelper.queryDataCount(); // Inisialisasi sekali saja
   }
 
   @override
@@ -82,6 +87,7 @@ class _MainPageState extends State<MainPage> {
     await Future.wait([
       _loadDashboardData(),
       _checkDataSync(),
+      _areaFuture = _dbHelper.queryDataCount(), // Inisialisasi sekali saja
     ]);
   }
 
@@ -93,11 +99,15 @@ class _MainPageState extends State<MainPage> {
       final dataJenKel = await _dbHelper.queryLatestDataJenKel();
       final dataCompare = await _dbHelper.queryCompareAnggota();
 
-      int tempKontrak = 0;
+      int tempKontrak = 0;int tempTetap = 0;
       if (dataCompare != null && dataCompare.isNotEmpty) {
         for (var row in dataCompare) {
-          if (row['status']?.toString() == '02') {
+          if (row['status']?.toString() == '02' || row['status']?.toString() == '2') {
             tempKontrak++;
+          }
+
+          if(row['status']?.toString() == '01' || row['status']?.toString() == '1'){
+            tempTetap++;
           }
         }
       }
@@ -109,6 +119,7 @@ class _MainPageState extends State<MainPage> {
           _totalAnggota_l = int.tryParse(dataJenKel?['jumlah_laki']?.toString() ?? '0') ?? 0;
           _totalAnggota_p = int.tryParse(dataJenKel?['jumlah_perempuan']?.toString() ?? '0') ?? 0;
           _totalAnggota_kontrak = tempKontrak;
+          _totalAnggota_tetap = tempTetap;
           _isLoadingDashboard = false;
         });
       }
@@ -753,22 +764,24 @@ class _MainPageState extends State<MainPage> {
                                   ],
                                 );
                               }),
+                              Divider(height: 1, thickness: 0.8, color: Colors.black87.withOpacity(0.2)),
+                              const SizedBox(height: 20),
                               Builder(builder: (context) {
-                                if (_totalAnggota_kontrak <= 0) return const SizedBox.shrink();
+                                if (_totalAnggota_tetap <= 0) return const SizedBox.shrink();
                                 return Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
                                     Row(
                                       children: [
-                                        const Icon(Icons.woman_2_rounded, color: Colors.teal, size: 26),
+                                        const Icon(Icons.person_2_rounded, color: Colors.teal, size: 16),
                                         const SizedBox(width: 10),
                                         Column(
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
                                             Text(
-                                              'Jumlah Anggota Kontrak',
+                                              'Jml Anggota Tetap',
                                               style: TextStyle(
-                                                fontSize: 11,
+                                                fontSize: 12,
                                                 fontWeight: FontWeight.w600,
                                                 color: Colors.teal.shade700,
                                               ),
@@ -778,17 +791,44 @@ class _MainPageState extends State<MainPage> {
                                       ],
                                     ),
                                     Text(
-                                      '$_totalAnggota_kontrak',
+                                      '$_totalAnggota_tetap (${(((_totalAnggota_tetap / _totalAnggota) * 100).toStringAsFixed(2))}) %',
                                       style: const TextStyle(
-                                        fontSize: 20,
+                                        fontSize: 12,
                                         fontWeight: FontWeight.bold,
                                         color: Colors.teal,
                                       ),
                                     ),
+                                  ],
+                                );
+                              }),
+                              Builder(builder: (context) {
+                                if (_totalAnggota_kontrak <= 0) return const SizedBox.shrink();
+                                return Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.person_2_rounded, color: Colors.teal, size: 16),
+                                        const SizedBox(width: 10),
+                                        Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Jml Anggota Kontrak',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600,
+                                                color: Colors.teal.shade700,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
                                     Text(
-                                      '(${(((_totalAnggota_kontrak / _totalAnggota) * 100).toStringAsFixed(2))}) %',
+                                      '$_totalAnggota_kontrak (${(((_totalAnggota_kontrak / _totalAnggota) * 100).toStringAsFixed(2))}) %',
                                       style: const TextStyle(
-                                        fontSize: 20,
+                                        fontSize: 12,
                                         fontWeight: FontWeight.bold,
                                         color: Colors.teal,
                                       ),
@@ -929,12 +969,14 @@ class _MainPageState extends State<MainPage> {
                               '${total_non_anggota} (${((total_non_anggota / total_pegawai) * 100).toStringAsFixed(0)}%)',
                             );
                           }),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 20),
                         ],
                       ],
                     )
                   ],
                 ),
+                // TAMBAHKAN SIZEDBOX DI SINI UNTUK MEMBERI RUANG SCROLL DI BAWAH NAV BAR
+                const SizedBox(height: 80),
               ],
             ),
           ),
@@ -1117,6 +1159,7 @@ class _MainPageState extends State<MainPage> {
                     );
                   },
                 ),
+                const SizedBox(height: 40),
               ],
             ),
           ),
@@ -1126,12 +1169,13 @@ class _MainPageState extends State<MainPage> {
   }
 
   // 🔍 HALAMAN AREA KERJA DENGAN INPUT PENCARIAN REAL-TIME
+  // 3. Widget _buildAreaKerjaPage yang sudah diperbaiki
   Widget _buildAreaKerjaPage(BuildContext context) {
     return RefreshIndicator(
       onRefresh: _refreshData,
       color: Colors.teal,
       child: FutureBuilder<List<Map<String, dynamic>>>(
-        future: _dbHelper.queryDataCount(),
+        future: _areaFuture, // Ganti pemanggilan fungsi dengan variabel State
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator(color: Colors.white));
@@ -1169,7 +1213,7 @@ class _MainPageState extends State<MainPage> {
                   TextField(
                     controller: _searchAreaController,
                     onChanged: (value) {
-                      setState(() {}); // Refresh tampilan saat kata kunci berubah
+                      setState(() {}); // Sekarang setState hanya memfilter list lokal, tanpa mereload DB
                     },
                     decoration: InputDecoration(
                       hintText: "Cari area kerja...",
@@ -1218,7 +1262,7 @@ class _MainPageState extends State<MainPage> {
 
                         return Card(
                           elevation: 4,
-                          margin: const EdgeInsets.only(bottom: 3),
+                          margin: const EdgeInsets.only(bottom: 10),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
                           ),
@@ -1303,6 +1347,7 @@ class _MainPageState extends State<MainPage> {
                       },
                     ),
                   ),
+                  const SizedBox(height: 80), // Menambahkan ruang scroll bawah agar tidak terpotong nav bar
                 ],
               ),
             ),

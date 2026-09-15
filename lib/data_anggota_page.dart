@@ -11,12 +11,14 @@ class DataAnggotaPage extends StatefulWidget {
 class _DataAnggotaPageState extends State<DataAnggotaPage> {
   final DatabaseHelper _dbHelper = DatabaseHelper();
   final TextEditingController _searchController = TextEditingController();
-  bool _showOnlyMissing = false; // Filter checkbox
+  bool _showOnlyMissing = false;
+  bool _showDouble = false;
   int total_anggota = 0;
 
   List<Map<String, dynamic>> _dataAnggota = [];
   List<Map<String, dynamic>> _dataKaryawan = [];
   Set<String> _nikKaryawanSet = {};
+  Set<String> _duplicateNiks = {};
   bool _isLoading = true;
 
   @override
@@ -42,6 +44,24 @@ class _DataAnggotaPageState extends State<DataAnggotaPage> {
         .where((nik) => nik.isNotEmpty)
         .toSet();
 
+    _dataKaryawan = karyawan;
+
+    // DETEKSI NIK DOUBLE SEKALIGUS
+    final Set<String> seenNiks = {};
+    final Set<String> duplicateNiks = {};
+
+    for (var item in anggota) {
+      final nik = (item['nomor_nik'] ?? item['nik'] ?? '').toString().trim();
+      if (nik.isNotEmpty) {
+        if (seenNiks.contains(nik)) {
+          duplicateNiks.add(nik);
+        } else {
+          seenNiks.add(nik);
+        }
+      }
+    }
+
+    // FILTER SEARCH TEXTFIELD
     final query = _searchController.text.toLowerCase().trim();
     final filteredAnggota = anggota.where((item) {
       final nik = (item['nomor_nik'] ?? item['nik'] ?? '').toString().toLowerCase();
@@ -49,22 +69,30 @@ class _DataAnggotaPageState extends State<DataAnggotaPage> {
       return nik.contains(query) || nama.contains(query);
     }).toList();
 
-    _dataKaryawan = await _dbHelper.queryAllKaryawan();
-
     setState(() {
       _nikKaryawanSet = nikSet;
       _dataAnggota = filteredAnggota;
+      _duplicateNiks = duplicateNiks;
       _isLoading = false;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    // Checkbox Filter NIK Tidak Ada di Karyawan
-    total_anggota = _showOnlyMissing ?  _dataAnggota.where((item) {
-      final nik = (item['nomor_nik']).toString().trim();
-      return nik.isEmpty || !_nikKaryawanSet.contains(nik);
-    }).toList().length : _dataAnggota.length;
+    // 1. FILTER DISPLAY LIST DILAKUKAN SEKALI DI SINI
+    final displayList = _dataAnggota.where((item) {
+      final nik = (item['nomor_nik'] ?? item['nik'] ?? '').toString().trim();
+
+      if (_showDouble) {
+        return _duplicateNiks.contains(nik);
+      }
+      if (_showOnlyMissing) {
+        return nik.isEmpty || !_nikKaryawanSet.contains(nik);
+      }
+      return true;
+    }).toList();
+
+    total_anggota = displayList.length;
 
     return Scaffold(
       appBar: AppBar(
@@ -92,7 +120,6 @@ class _DataAnggotaPageState extends State<DataAnggotaPage> {
         ),
         child: Column(
           children: [
-            // 1. Search Bar Card & Checkbox Filter
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
               child: Container(
@@ -111,8 +138,6 @@ class _DataAnggotaPageState extends State<DataAnggotaPage> {
                 ),
                 child: Column(
                   children: [
-
-                    // TextField Search
                     TextField(
                       controller: _searchController,
                       decoration: InputDecoration(
@@ -134,7 +159,6 @@ class _DataAnggotaPageState extends State<DataAnggotaPage> {
                       ),
                       onChanged: (value) => _loadData(),
                     ),
-
                     const SizedBox(height: 4),
                     Row(
                       children: [
@@ -145,6 +169,7 @@ class _DataAnggotaPageState extends State<DataAnggotaPage> {
                           onChanged: (bool? value) {
                             setState(() {
                               _showOnlyMissing = value ?? false;
+                              if (_showOnlyMissing) _showDouble = false;
                             });
                           },
                         ),
@@ -152,25 +177,49 @@ class _DataAnggotaPageState extends State<DataAnggotaPage> {
                           onTap: () {
                             setState(() {
                               _showOnlyMissing = !_showOnlyMissing;
+                              if (_showOnlyMissing) _showDouble = false;
                             });
                           },
                           child: const Text(
                             'NIK Tidak Ada di Data Karyawan',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.red,
-                            ),
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.red),
                           ),
                         ),
                       ],
                     ),
-                    // Checkbox Filter NIK Tidak Ada di Karyawan
+                    Row(
+                      children: [
+                        const SizedBox(width: 4),
+                        Checkbox(
+                          value: _showDouble,
+                          activeColor: Colors.orange.shade800,
+                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          onChanged: (bool? value) {
+                            setState(() {
+                              _showDouble = value ?? false;
+                              if (_showDouble) _showOnlyMissing = false;
+                            });
+                          },
+                        ),
+                        InkWell(
+                          onTap: () {
+                            setState(() {
+                              _showDouble = !_showDouble;
+                              if (_showDouble) _showOnlyMissing = false;
+                            });
+                          },
+                          child: const Text(
+                            'NIK Yang Double',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.orange),
+                          ),
+                        ),
+                      ],
+                    ),
                     Row(
                       children: [
                         Expanded(
                           child: Text(
-                            'Total Anggota : '+ total_anggota.toString(),
+                            'Total Anggota : $total_anggota',
                             style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.bold,
@@ -185,44 +234,33 @@ class _DataAnggotaPageState extends State<DataAnggotaPage> {
               ),
             ),
 
-            // 2. Responsive Content (DataTable untuk Layar Lebar, Card List untuk HP)
+            // 2. EXPANDED BODY (TANPA DEKLARASI DISPLAYLIST ULANG)
             Expanded(
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator(color: Colors.white))
-                  : Builder(
-                builder: (context) {
-                  // Saring data jika checkbox filter aktif
-                  final displayList = _showOnlyMissing
-                      ? _dataAnggota.where((item) {
-                    final nik = (item['nomor_nik'] ?? item['nik'] ?? '').toString().trim();
-                    return nik.isEmpty || !_nikKaryawanSet.contains(nik);
-                  }).toList()
-                      : _dataAnggota;
-                  if (displayList.isEmpty) {
-                    return Center(
-                      child: Text(
-                        _showOnlyMissing
-                            ? 'Tidak ada data anggota yang bermasalah/hilang dari karyawan'
-                            : 'Data tidak ditemukan',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 15,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                    );
+                  : displayList.isEmpty
+                  ? Center(
+                child: Text(
+                  _showDouble
+                      ? 'Tidak ada data NIK yang double'
+                      : _showOnlyMissing
+                      ? 'Tidak ada data anggota yang bermasalah/hilang dari karyawan'
+                      : 'Data tidak ditemukan',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              )
+                  : LayoutBuilder(
+                builder: (context, constraints) {
+                  if (constraints.maxWidth >= 600) {
+                    return _buildDataTable(constraints, displayList);
+                  } else {
+                    return _buildCardList(displayList);
                   }
-                  return LayoutBuilder(
-                    builder: (context, constraints) {
-                      // Cek jika lebar layar >= 600px (Tablet / Laptop / PC)
-                      if (constraints.maxWidth >= 600) {
-                        return _buildDataTable(constraints, displayList);
-                      } else {
-                        return _buildCardList(displayList);
-                      }
-                    },
-                  );
                 },
               ),
             ),
@@ -240,7 +278,6 @@ class _DataAnggotaPageState extends State<DataAnggotaPage> {
     );
   }
 
-  /// WIDGET TABEL DATA (Untuk Layar Tablet / Laptop)
   Widget _buildDataTable(BoxConstraints constraints, List<Map<String, dynamic>> list) {
     return Padding(
       padding: const EdgeInsets.all(12.0),
@@ -268,38 +305,44 @@ class _DataAnggotaPageState extends State<DataAnggotaPage> {
                     DataColumn(label: Text('Tgl Berhenti', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal))),
                     DataColumn(label: Text('Karyawan', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal))),
                   ],
-                  // PERBAIKAN: Gunakan parameter 'list' hasil filter
                   rows: list.map((item) {
                     final nik = (item['nomor_nik'] ?? item['nik'] ?? '').toString().trim();
                     final nama = (item['nama_anggota'] ?? item['nama'] ?? '-').toString();
                     final isKaryawan = nik.isNotEmpty && _nikKaryawanSet.contains(nik);
 
-                    // 1. CARI DATA KARYAWAN BERDASARKAN NIK
                     final karyawanData = isKaryawan
                         ? _dataKaryawan.firstWhere(
                           (k) => (k['nik'] ?? '').toString().trim() == nik,
                       orElse: () => {},
-                    ) : null;
+                    )
+                        : null;
 
-                    String tglBerhenti = karyawanData?['tgl_berhenti'] ?? '-'; // Sesuaikan field DB Anda
-                    String status = ""; // Sesuaikan field DB Anda
+                    String tglBerhenti = karyawanData?['tgl_berhenti'] ?? '-';
+                    String status = "";
 
-                    if(isKaryawan){
-                      if(karyawanData?['status'] == "01"){
-                        status = "Tetap";
-                      }else if(karyawanData?['status'] == "02"){
-                        status = "Kontrak";
-                      }else if(karyawanData?['status'] == "03"){
-                        status = "Magang";
-                      }else{
-                        status = "-";
-                      }
+                    if (isKaryawan) {
+                      final statusMap = {
+                        "1": "Tetap", "01": "Tetap",
+                        "2": "Kontrak", "02": "Kontrak",
+                        "3": "Magang", "03": "Magang",
+                      };
+                      final rawStatus = karyawanData?['status']?.toString().trim();
+                      status = statusMap[rawStatus] ?? "-";
+                    }
+
+                    final isDuplicate = _duplicateNiks.contains(nik);
+
+                    Color rowColor;
+                    if (isDuplicate) {
+                      rowColor = Colors.yellowAccent.shade200;
+                    } else if (!isKaryawan) {
+                      rowColor = Colors.red.shade300;
+                    } else {
+                      rowColor = Colors.transparent;
                     }
 
                     return DataRow(
-                      color: WidgetStateProperty.all(
-                        isKaryawan ? Colors.transparent : Colors.red.shade300,
-                      ),
+                      color: WidgetStateProperty.all(rowColor),
                       cells: [
                         DataCell(Text(nik.isEmpty ? '(NIK KOSONG)' : nik, style: TextStyle(fontWeight: FontWeight.bold, color: isKaryawan ? Colors.black87 : Colors.red.shade900))),
                         DataCell(Text(nama)),
@@ -333,46 +376,49 @@ class _DataAnggotaPageState extends State<DataAnggotaPage> {
     );
   }
 
-  /// WIDGET LIST CARD (Untuk Layar HP Mobile)
   Widget _buildCardList(List<Map<String, dynamic>> list) {
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      // PERBAIKAN: Gunakan panjang 'list' hasil filter
       itemCount: list.length,
       itemBuilder: (context, index) {
-        // PERBAIKAN: Ambil item dari 'list' hasil filter
         final item = list[index];
         final nik = (item['nomor_nik'] ?? item['nik'] ?? '').toString().trim();
         final nama = (item['nama_anggota'] ?? item['nama'] ?? '-').toString();
         final isKaryawan = nik.isNotEmpty && _nikKaryawanSet.contains(nik);
+        final isDuplicate = _duplicateNiks.contains(nik);
 
-        // 1. CARI DATA KARYAWAN BERDASARKAN NIK
         final karyawanData = isKaryawan
             ? _dataKaryawan.firstWhere(
               (k) => (k['nik'] ?? '').toString().trim() == nik,
           orElse: () => {},
-        ) : null;
+        )
+            : null;
 
-        String tglBerhenti = karyawanData?['tgl_berhenti'] ?? ''; // Sesuaikan field DB Anda
-        String status = ""; // Sesuaikan field DB Anda
+        String tglBerhenti = karyawanData?['tgl_berhenti'] ?? '';
+        String status = "";
 
-        if(isKaryawan){
-          if(karyawanData?['status'] == "01"){
-            status = "Tetap";
-          }else if(karyawanData?['status'] == "02"){
-            status = "Kontrak";
-          }else if(karyawanData?['status'] == "03"){
-            status = "Magang";
-          }else{
-            status = "-";
-          }
+        if (isKaryawan) {
+          final statusMap = {
+            "1": "Tetap", "01": "Tetap",
+            "2": "Kontrak", "02": "Kontrak",
+            "3": "Magang", "03": "Magang",
+          };
+          final rawStatus = karyawanData?['status']?.toString().trim();
+          status = statusMap[rawStatus] ?? "-";
+        }
+
+        Color cardColor = Colors.white;
+        if (isDuplicate) {
+          cardColor = Colors.yellow.shade200;
+        } else if (!isKaryawan) {
+          cardColor = Colors.red.shade50;
         }
 
         return Card(
           elevation: 3,
           margin: const EdgeInsets.only(bottom: 10),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          color: isKaryawan ? Colors.white : Colors.red.shade50,
+          color: cardColor,
           child: Padding(
             padding: const EdgeInsets.all(14.0),
             child: Column(
@@ -388,7 +434,7 @@ class _DataAnggotaPageState extends State<DataAnggotaPage> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        nik.isEmpty ? '(NIK KOSONG)' : 'NiK : '+ nik,
+                        nik.isEmpty ? '(NIK KOSONG)' : 'NIK : $nik',
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
@@ -396,20 +442,37 @@ class _DataAnggotaPageState extends State<DataAnggotaPage> {
                         ),
                       ),
                     ),
-                    if(!isKaryawan)
+                    if (isDuplicate)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade100,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.orange),
+                        ),
+                        child: const Text(
+                          'NIK Double',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.orange,
+                          ),
+                        ),
+                      )
+                    else if (!isKaryawan)
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: isKaryawan ? Colors.teal.shade50 : Colors.red.shade100,
+                          color: Colors.red.shade100,
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: isKaryawan ? Colors.teal : Colors.red),
+                          border: Border.all(color: Colors.red),
                         ),
                         child: Text(
                           'Tidak ada di Data Karyawan',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
-                            color: isKaryawan ? Colors.teal.shade800 : Colors.red.shade800,
+                            color: Colors.red.shade800,
                           ),
                         ),
                       ),
@@ -430,7 +493,7 @@ class _DataAnggotaPageState extends State<DataAnggotaPage> {
                     const Text(': ', style: TextStyle(color: Colors.black54)),
                     Expanded(
                       child: Text(
-                        '$status' + (tglBerhenti != null && tglBerhenti.isNotEmpty ? ' (Tgl Berhenti: $tglBerhenti)' : ''),
+                        '$status${tglBerhenti.isNotEmpty ? ' (Tgl Berhenti: $tglBerhenti)' : ''}',
                         style: const TextStyle(fontSize: 13),
                       ),
                     ),
