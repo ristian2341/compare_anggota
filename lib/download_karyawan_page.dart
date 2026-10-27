@@ -81,7 +81,7 @@ class _DownloadKaryawanPageState extends State<DownloadKaryawanPage> {
               'nik': rawNik,
               'nama_karyawan': columns.length > 3 ? columns[3].replaceAll('"', '').trim() : '',
               'area_kerja': columns.length > 4 ? columns[4].replaceAll('"', '').trim() : '',
-              'status': columns.length > 5 ? columns[5].replaceAll('"', '').trim() : '',
+              'status': columns.length > 5 ? columns[5].replaceAll('"', '').replaceAll(",",'').trim() : '',
               'tgl_berhenti': columns.length > 6 ? columns[6].replaceAll('"', '').trim() : '',
             });
             importedCount++;

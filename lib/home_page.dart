@@ -117,6 +117,7 @@ class _HomePageState extends State<HomePage> {
       String nik = item['nik'].toString().toLowerCase().trim();
       String nama = item['nama'].toString().toLowerCase();
       String area = item['area'].toString().toLowerCase();
+      String status_pegawai = item['status_pegawai'].toString().toLowerCase();
 
       bool match(String value) {
         return isContains
@@ -133,7 +134,8 @@ class _HomePageState extends State<HomePage> {
       } else {
         return match(nik) ||
             match(nama) ||
-            match(area);
+            match(area) ||
+            match(status_pegawai);
       }
 
     }).toList();
